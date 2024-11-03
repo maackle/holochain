@@ -57,7 +57,7 @@ mod bloom;
 mod initiate;
 mod ops;
 mod state_map;
-mod store;
+pub mod store;
 
 mod bandwidth;
 mod next_target;
@@ -866,7 +866,7 @@ impl ShardedGossipLocal {
         })
     }
 
-    async fn process_incoming(
+    pub async fn process_incoming(
         &self,
         peer_cert: NodeCert,
         msg: ShardedGossipWire,

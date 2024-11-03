@@ -26,7 +26,7 @@ use super::ShardedGossipLocal;
 /// A short-lived session for agent info. Local agents from Kitsune are combined with the list of agents from the host
 /// to allow gossip to access agent info as needed. The session should be regularly refreshed from these sources.
 #[derive(Default)]
-pub(super) struct AgentInfoSession {
+pub struct AgentInfoSession {
     /// The local agents that have joined a Kitsune space, converted to agent infos by calling the host.
     local_agents: Vec<AgentInfoSigned>,
 
