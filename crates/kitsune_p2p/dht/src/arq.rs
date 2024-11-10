@@ -95,7 +95,7 @@ impl ArqStart for SpaceOffset {
     }
 
     fn requantize_down(&self, factor: u32) -> Self {
-        *self * factor
+        self.saturating_mul(factor).into()
     }
 
     fn zero() -> Self {
@@ -216,7 +216,8 @@ impl<S: ArqStart> Arq<S> {
     pub fn to_edge_locs(&self, dim: impl SpaceDim) -> (Loc, Loc) {
         let start = self.start.to_offset(dim, self.power);
         let left = start.to_loc(dim, self.power);
-        let right = (start + self.count).to_loc(dim, self.power) - Loc::from(1);
+        let right =
+            SpaceOffset(start.wrapping_add(*self.count)).to_loc(dim, self.power) - Loc::from(1);
         (left, right)
     }
 
@@ -252,8 +253,8 @@ impl<S: ArqStart> Arq<S> {
                 }
             })
         } else {
-            let factor = 2u32.pow((old_power - new_power) as u32);
-            let new_count = old_count * factor;
+            let factor = 2u32.saturating_pow((old_power - new_power) as u32);
+            let new_count = old_count.saturating_mul(factor).into();
             Some((self.start.requantize_down(factor), new_power, new_count))
         }
         .map(|(start, power, count)| Self {

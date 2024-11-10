@@ -1,5 +1,7 @@
 use std::cell::RefCell;
 
+use proptest::prelude::Strategy;
+
 // MAYBE - expirement with these values for efficiency.
 
 /// The max capacity of in-pool stored PoolBufs per thread.
@@ -25,10 +27,6 @@ pub(crate) const POOL_BUF_PRE_WRITE_SPACE: usize = 128;
 ///
 /// We avoid initialization by using `extend_from_slice()`.
 #[derive(Clone, PartialEq, Eq)]
-#[cfg_attr(
-    feature = "fuzzing",
-    derive(arbitrary::Arbitrary, proptest_derive::Arbitrary)
-)]
 pub struct PoolBuf(Option<(usize, Vec<u8>)>);
 
 impl std::fmt::Debug for PoolBuf {
@@ -105,6 +103,31 @@ impl Drop for PoolBuf {
                 }
             });
         }
+    }
+}
+
+#[cfg(feature = "fuzzing")]
+impl<'a> arbitrary::Arbitrary<'a> for PoolBuf {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let mut b = PoolBuf::new();
+        b.extend_from_slice(u.arbitrary()?);
+        Ok(b)
+    }
+}
+
+#[cfg(feature = "fuzzing")]
+impl proptest::arbitrary::Arbitrary for PoolBuf {
+    type Parameters = ();
+    type Strategy = proptest::strategy::BoxedStrategy<PoolBuf>;
+
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
+        proptest::collection::vec(proptest::bits::u8::ANY, 128..65536)
+            .prop_map(|b| {
+                let mut buf = PoolBuf::new();
+                buf.extend_from_slice(&b);
+                buf
+            })
+            .boxed()
     }
 }
 

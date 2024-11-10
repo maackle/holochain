@@ -200,8 +200,8 @@ impl KitsuneHost for HostStub {
         KitsuneHostDefaultError::record_metrics(&self.err, space, records)
     }
 
-    fn get_topology(&self, space: Arc<KitsuneSpace>) -> KitsuneHostResult<Topology> {
-        KitsuneHostDefaultError::get_topology(&self.err, space)
+    fn get_topology(&self, _space: Arc<KitsuneSpace>) -> KitsuneHostResult<Topology> {
+        kitsune_p2p_types::box_fut(Ok(Topology::standard_zero()))
     }
 
     fn op_hash(&self, op_data: KOpData) -> KitsuneHostResult<KOpHash> {

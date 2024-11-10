@@ -453,14 +453,15 @@ impl ShardedGossip {
 /// - making requests to the local backend
 /// - processing incoming messages to produce outgoing messages (which actually)
 ///     get sent by the enclosing `ShardedGossip`
+#[allow(missing_docs)]
 pub struct ShardedGossipLocal {
-    gossip_type: GossipType,
-    tuning_params: KitsuneP2pTuningParams,
-    space: Arc<KitsuneSpace>,
-    host_api: HostApiLegacy,
-    inner: Share<ShardedGossipLocalState>,
-    closing: AtomicBool,
-    fetch_pool: FetchPool,
+    pub gossip_type: GossipType,
+    pub tuning_params: KitsuneP2pTuningParams,
+    pub space: Arc<KitsuneSpace>,
+    pub host_api: HostApiLegacy,
+    pub inner: Share<ShardedGossipLocalState>,
+    pub closing: AtomicBool,
+    pub fetch_pool: FetchPool,
 }
 
 /// Incoming gossip.
@@ -486,17 +487,19 @@ pub(crate) struct ShardedGossipTarget {
 #[derive(Default)]
 pub struct ShardedGossipLocalState {
     /// The list of agents on this node
-    local_agents: HashSet<Arc<KitsuneAgent>>,
+    pub local_agents: HashSet<Arc<KitsuneAgent>>,
     /// If Some, we are in the process of trying to initiate gossip with this target.
     initiate_tgt: Option<ShardedGossipTarget>,
-    round_map: RoundStateMap,
+    /// The rounds
+    pub round_map: RoundStateMap,
     /// Metrics that track remote node states and help guide
     /// the next node to gossip with.
     metrics: MetricsSync,
 }
 
 impl ShardedGossipLocalState {
-    fn new(metrics: MetricsSync) -> Self {
+    /// Constructor
+    pub fn new(metrics: MetricsSync) -> Self {
         Self {
             metrics,
             ..Default::default()
@@ -658,37 +661,37 @@ impl ShardedGossipState {
 #[derive(Debug, Clone)]
 pub struct RoundState {
     /// The remote agents hosted by the remote node, used for metrics tracking
-    pub(crate) remote_agent_list: Vec<AgentInfoSigned>,
+    pub remote_agent_list: Vec<AgentInfoSigned>,
     /// The common ground with our gossip partner for the purposes of this round
-    common_arq_set: Arc<ArqSet>,
+    pub common_arq_set: Arc<ArqSet>,
     /// We've received the last op bloom filter from our partner
     /// (the one with `finished` == true)
-    received_all_incoming_op_blooms: bool,
+    pub received_all_incoming_op_blooms: bool,
     /// If historic gossip, we calculated and queued our region diff (will be true for Recent)
-    regions_are_queued: bool,
+    pub regions_are_queued: bool,
     /// Number of ops blooms we have sent for this round, which is also the
     /// number of MissingOpHashes sets we expect in response
-    num_expected_op_blooms: u16,
+    pub num_expected_op_blooms: u16,
     /// Received all responses to OpRegions, which is the batched set of Op data
     /// in the diff of regions
-    has_pending_historical_op_data: bool,
+    pub has_pending_historical_op_data: bool,
     /// There are still op blooms to send because the previous
     /// batch was too big to send in a single gossip iteration.
-    bloom_batch_cursor: Option<Timestamp>,
+    pub bloom_batch_cursor: Option<Timestamp>,
     /// Missing op hashes that have been batched for
     /// future processing.
-    ops_batch_queue: OpsBatchQueue,
+    pub ops_batch_queue: OpsBatchQueue,
     /// Last moment we had any contact for this round.
-    last_touch: Instant,
+    pub last_touch: Instant,
     /// Amount of time before a round is considered expired.
-    round_timeout: std::time::Duration,
+    pub round_timeout: std::time::Duration,
     /// The RegionSet we will send to our gossip partner during Historical
     /// gossip (will be None for Recent).
-    region_set_sent: Option<Arc<RegionSetLtcs>>,
+    pub region_set_sent: Option<Arc<RegionSetLtcs>>,
     /// Region diffs, if doing Historical gossip
-    pub(crate) region_diffs: RegionDiffs,
+    pub region_diffs: RegionDiffs,
     /// Unique string ID for this round
-    pub(crate) id: String,
+    pub id: String,
 }
 
 /// Our region diff and their region diff
@@ -866,6 +869,7 @@ impl ShardedGossipLocal {
         })
     }
 
+    /// tmp
     pub async fn process_incoming(
         &self,
         peer_cert: NodeCert,
@@ -911,7 +915,7 @@ impl ShardedGossipLocal {
             }
             ShardedGossipWire::Agents(Agents { filter }) => {
                 if let Some(state) = self.get_state(&peer_cert)? {
-                    let filter = decode_bloom_filter(&filter);
+                    let filter = decode_bloom_filter(&dbg!(filter));
                     self.incoming_agents(state, filter, agent_info_session)
                         .await?
                 } else {

@@ -112,7 +112,7 @@ impl proptest::arbitrary::Arbitrary for TxUrl {
         use proptest::strategy::Strategy;
 
         // XXX: not the best implementation, it doesn't exercise other protocols
-        proptest::string::string_regex(r"http://\w+")
+        proptest::string::string_regex(r"http://[a-zA-Z0-9]+")
             .unwrap()
             .prop_map(|s| TxUrl::from_str_panicking(&s))
             .boxed()
