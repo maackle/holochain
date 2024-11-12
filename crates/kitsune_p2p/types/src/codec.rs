@@ -103,7 +103,7 @@ macro_rules! write_codec_enum {
         $crate::dependencies::paste::item! {
             $(
                 $(#[doc = $var_doc])*
-                #[allow(non_local_definitions)]
+                #[allow(unknown_lints, non_local_definitions)]
                 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
                 // NOTE: calling crate must depend on kitsune_p2p_types with feature fuzzing
                 #[cfg_attr(feature = "fuzzing", derive($crate::dependencies::proptest_derive::Arbitrary))]

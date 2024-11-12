@@ -9,13 +9,10 @@ impl ShardedGossipLocal {
         remote_bloom: BloomFilter,
         agent_info_session: &mut AgentInfoSession,
     ) -> KitsuneResult<Vec<ShardedGossipWire>> {
-        // Unpack this rounds state.
-        let RoundState { common_arq_set, .. } = state;
-
         // Get all agents within common arc and filter out
         // the ones in the remote bloom.
         let missing: Vec<_> = agent_info_session
-            .agent_info_within_arc_set(&self.host_api, &self.space, (*common_arq_set).clone())
+            .agent_info_within_arc_set(&self.host_api, &self.space, (*state.common_arq_set).clone())
             .await?
             .into_iter()
             .filter(|info| {

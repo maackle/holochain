@@ -656,10 +656,13 @@ impl ShardedGossipState {
     }
 }
 
+#[derive(Debug, Clone, derive_more::Deref, derive_more::From)]
+pub struct RoundState(Round);
+
 /// The state representing a single active ongoing "round" of gossip with a
 /// remote node
 #[derive(Debug, Clone)]
-pub struct RoundState {
+pub struct Round {
     /// The remote agents hosted by the remote node, used for metrics tracking
     pub remote_agent_list: Vec<AgentInfoSigned>,
     /// The common ground with our gossip partner for the purposes of this round
@@ -705,7 +708,7 @@ impl RoundState {
         region_set_sent: Option<Arc<RegionSetLtcs<RegionData>>>,
         round_timeout: Duration,
     ) -> Self {
-        RoundState {
+        Round {
             remote_agent_list,
             common_arq_set,
             received_all_incoming_op_blooms: false,
@@ -720,6 +723,7 @@ impl RoundState {
             region_set_sent,
             region_diffs: Default::default(),
         }
+        .into()
     }
 
     /// Get the common arcs as continuous arcs
