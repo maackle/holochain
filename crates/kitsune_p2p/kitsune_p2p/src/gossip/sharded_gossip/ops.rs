@@ -372,6 +372,12 @@ impl OpsBatchQueue {
     }
 }
 
+impl Default for OpsBatchQueue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OpsBatchQueueInner {
     fn new() -> Self {
         Self {

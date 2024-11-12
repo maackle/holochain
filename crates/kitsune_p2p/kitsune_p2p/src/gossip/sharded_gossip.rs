@@ -915,7 +915,7 @@ impl ShardedGossipLocal {
             }
             ShardedGossipWire::Agents(Agents { filter }) => {
                 if let Some(state) = self.get_state(&peer_cert)? {
-                    let filter = decode_bloom_filter(&dbg!(filter));
+                    let filter = decode_bloom_filter(&filter);
                     self.incoming_agents(state, filter, agent_info_session)
                         .await?
                 } else {
