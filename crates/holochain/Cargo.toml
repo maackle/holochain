@@ -136,6 +136,7 @@ sd-notify = "0.4"
 [dev-dependencies]
 holochain = { path = ".", default-features = false, features = [
   "test_utils",
+  "fuzzing",
   "slow_tests",
   "tx2",
   "tx5",
@@ -233,7 +234,7 @@ test_utils = [
   "get_if_addrs",
 ]
 
-fuzzing = []
+fuzzing = ["kitsune_p2p/fuzzing"]
 
 # Wasm ribosome tests take > 60 seconds - let's only run them in CI
 slow_tests = []

@@ -363,7 +363,7 @@ async fn create_test_data(
     let mut bucket_counts = vec![0; buckets.len()];
     let mut entries = Vec::with_capacity(buckets.len() * approx_num_ops_held);
     let rng = rand::thread_rng();
-    let mut rand_entry = rng.sample_iter(&Standard);
+    let mut rand_entry = rng.sample_iter::<u8, _>(Standard);
     let rand_entry = rand_entry.by_ref();
 
     loop {

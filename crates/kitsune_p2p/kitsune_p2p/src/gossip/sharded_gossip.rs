@@ -165,7 +165,7 @@ impl ShardedGossip {
             let (tx, rx) = std::sync::mpsc::channel();
             tokio::spawn(async move {
                 while let Ok((cert, event)) = rx.recv() {
-                    tracing::info!("Polestar received event: {:?}", event);
+                    println!("POLESTAR received event: {event:20?} {cert:?}");
                 }
             });
             Some(tx)
