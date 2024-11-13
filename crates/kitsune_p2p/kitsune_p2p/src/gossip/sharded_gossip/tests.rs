@@ -30,6 +30,7 @@ impl ShardedGossipLocal {
             inner: Share::new(inner),
             closing: std::sync::atomic::AtomicBool::new(false),
             fetch_pool,
+            polestar_sender: None,
         }
     }
 }

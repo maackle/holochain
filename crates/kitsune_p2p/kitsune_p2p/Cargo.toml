@@ -12,6 +12,7 @@ edition = "2021"
 
 # reminder - do not use workspace deps
 [dependencies]
+anyhow = "*"
 arrayref = "0.3.6"
 base64 = "0.22"
 bloomfilter = { version = "1.0.5", features = ["serde"] }
@@ -37,6 +38,7 @@ holochain_trace = { version = "^0.5.0-dev.1", path = "../../holochain_trace" }
 once_cell = "1.4.1"
 opentelemetry_api = { version = "=0.20.0", features = ["metrics"] }
 parking_lot = "0.12.1"
+polestar = { version = "*", path = "/home/michael/proj/polestar-rs" }
 rand = "0.8.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11"
@@ -113,9 +115,7 @@ tx5 = ["dep:tx5", "kitsune_p2p_types/tx5"]
 
 instrument = []
 
-unstable-sharding = [
-  "kitsune_p2p_types/unstable-sharding",
-]
+unstable-sharding = ["kitsune_p2p_types/unstable-sharding"]
 
 sqlite-encrypted = [
   "kitsune_p2p_fetch/sqlite-encrypted",

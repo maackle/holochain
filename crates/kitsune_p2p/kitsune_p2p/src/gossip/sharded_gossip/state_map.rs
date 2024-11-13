@@ -3,7 +3,7 @@ use super::*;
 /// Map of gossip round state that checks for timed out rounds on gets.
 #[derive(Default, Debug)]
 pub struct RoundStateMap {
-    map: HashMap<NodeCert, RoundState>,
+    pub map: HashMap<NodeCert, RoundState>,
     timed_out: Vec<(NodeCert, RoundState)>,
 }
 
