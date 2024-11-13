@@ -54,7 +54,7 @@ impl Machine for RoundPhase {
             // This might not be right
             (_, _, E::Close) => P::Finished,
 
-            _ => return Err(Some(anyhow::anyhow!("invalid transition"))),
+            tup => return Err(Some(anyhow::anyhow!("invalid transition: {tup:?}"))),
         };
         Ok((next, ()))
     }

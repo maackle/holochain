@@ -24,7 +24,7 @@ use kitsune_p2p_types::dht_arc::DhtArcSet;
 use kitsune_p2p_types::metrics::*;
 use kitsune_p2p_types::tx2::tx2_utils::*;
 use kitsune_p2p_types::*;
-use parking_lot::RwLock;
+use polestar::prelude::Projection;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::{TryFrom, TryInto};
 use std::sync::atomic::AtomicBool;
@@ -38,6 +38,7 @@ use self::state_map::RoundStateMap;
 use self::store::AgentInfoSession;
 use crate::metrics::MetricsSync;
 
+use super::model::gossip_model::GossipProjection;
 use super::{HowToConnect, MetaOpKey};
 
 pub use bandwidth::BandwidthThrottles;
@@ -161,31 +162,54 @@ impl ShardedGossip {
         let tuning_params = config.tuning_params.clone();
 
         #[cfg(feature = "fuzzing")]
-        let polestar_sender = {
-            let (tx, rx) = std::sync::mpsc::channel();
-            tokio::spawn(async move {
-                while let Ok((cert, event)) = rx.recv() {
-                    println!("POLESTAR received event: {event:20?} {cert:?}");
-                }
-            });
-            Some(tx)
-        };
-        #[cfg(not(feature = "fuzzing"))]
-        let polestar_sender = None;
-
-        let this = Arc::new(Self {
-            ep_hnd,
-            state: Share::new(state),
-            gossip: ShardedGossipLocal {
+        let gossip = {
+            let (polestar_sender, polestar_receiver) = std::sync::mpsc::channel();
+            let gossip = ShardedGossipLocal {
                 tuning_params,
                 space,
                 host_api,
                 inner: Share::new(ShardedGossipLocalState::new(metrics)),
                 gossip_type,
-                closing: AtomicBool::new(false),
+                closing: AtomicBool::new(false).into(),
                 fetch_pool,
-                polestar_sender,
-            },
+                polestar_sender: Some(polestar_sender),
+            };
+
+            let mut model = GossipProjection
+                .map_state(&gossip)
+                .expect("POLESTAR model mapping failed");
+            tokio::spawn(async move {
+                use polestar::Machine;
+                while let Ok(e) = polestar_receiver.recv() {
+                    let action = GossipProjection
+                        .map_event(e)
+                        .expect("POLESTAR event mapping failed");
+                    model = model
+                        .transition_(action)
+                        .expect("POLESTAR model failed to transition");
+                }
+            });
+
+            gossip
+        };
+        #[cfg(not(feature = "fuzzing"))]
+        let gossip = {
+            ShardedGossipLocal {
+                tuning_params,
+                space,
+                host_api,
+                inner: Share::new(ShardedGossipLocalState::new(metrics)),
+                gossip_type,
+                closing: AtomicBool::new(false).into(),
+                fetch_pool,
+                polestar_sender: None,
+            }
+        };
+
+        let this = Arc::new(Self {
+            ep_hnd,
+            state: Share::new(state),
+            gossip,
             bandwidth,
         });
 
@@ -469,20 +493,20 @@ impl ShardedGossip {
 /// - processing incoming messages to produce outgoing messages (which actually)
 ///     get sent by the enclosing `ShardedGossip`
 #[allow(missing_docs)]
+#[derive(Clone)]
 pub struct ShardedGossipLocal {
     pub gossip_type: GossipType,
     pub tuning_params: KitsuneP2pTuningParams,
     pub space: Arc<KitsuneSpace>,
     pub host_api: HostApiLegacy,
     pub inner: Share<ShardedGossipLocalState>,
-    pub closing: AtomicBool,
+    pub closing: Arc<AtomicBool>,
     pub fetch_pool: FetchPool,
     pub polestar_sender: PolestarSender,
 }
 
 #[cfg(feature = "fuzzing")]
-pub type PolestarSender =
-    Option<std::sync::mpsc::Sender<(NodeCert, crate::gossip::model::round_model::RoundEvent)>>;
+pub type PolestarSender = Option<std::sync::mpsc::Sender<(NodeCert, ShardedGossipWire)>>;
 #[cfg(not(feature = "fuzzing"))]
 pub type PolestarSender = Option<()>;
 
@@ -918,28 +942,10 @@ impl ShardedGossipLocal {
             },
         };
 
-        #[cfg(feature = "fuzzing")]
-        let event = {
-            use crate::gossip::model::round_model::RoundEvent;
-            match &msg {
-                ShardedGossipWire::Initiate(_) => Some(RoundEvent::Initiate),
-                ShardedGossipWire::Accept(_) => Some(RoundEvent::Accept),
-                ShardedGossipWire::Agents(_) => Some(RoundEvent::AgentDiff),
-                ShardedGossipWire::MissingAgents(_) => Some(RoundEvent::Agents),
-                ShardedGossipWire::OpBloom(_) | ShardedGossipWire::OpRegions(_) => {
-                    Some(RoundEvent::OpDiff)
-                }
-                ShardedGossipWire::MissingOpHashes(_) => Some(RoundEvent::Ops),
-                ShardedGossipWire::OpBatchReceived(_) => None,
-
-                ShardedGossipWire::NoAgents(_)
-                | ShardedGossipWire::AlreadyInProgress(_)
-                | ShardedGossipWire::Busy(_)
-                | ShardedGossipWire::Error(_) => Some(RoundEvent::Close),
-            }
-        };
-
         let cert = peer_cert.clone();
+
+        #[cfg(feature = "fuzzing")]
+        let event = msg.clone();
 
         // If we don't have the state for a message then the other node will need to timeout.
         let r = match msg {
@@ -1122,8 +1128,8 @@ impl ShardedGossipLocal {
         };
 
         #[cfg(feature = "fuzzing")]
-        if let (Some(tx), Some(e)) = (self.polestar_sender.as_ref(), event) {
-            tx.send((cert, e)).unwrap();
+        if let Some(tx) = self.polestar_sender.as_ref() {
+            tx.send((cert, event)).unwrap();
         }
 
         s.in_scope(|| {

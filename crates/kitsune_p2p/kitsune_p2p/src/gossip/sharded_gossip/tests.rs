@@ -28,7 +28,7 @@ impl ShardedGossipLocal {
             space,
             host_api: host,
             inner: Share::new(inner),
-            closing: std::sync::atomic::AtomicBool::new(false),
+            closing: std::sync::atomic::AtomicBool::new(false).into(),
             fetch_pool,
             polestar_sender: None,
         }

@@ -8,15 +8,17 @@ use crate::{
     NodeCert,
 };
 use anyhow::anyhow;
+use kitsune_p2p_types::GossipType;
 use polestar::prelude::*;
 use proptest_derive::Arbitrary;
 
-use super::round_model::{RoundEvent, RoundFsm};
+use super::round_model::{RoundEvent, RoundFsm, RoundPhase};
 
 #[derive(Debug, Clone, Eq, PartialEq, Arbitrary, derive_more::From)]
 pub struct GossipModel {
     rounds: FsmHashMap<NodeCert, RoundFsm>,
     initiate_tgt: Option<Tgt>,
+    gossip_type: GossipType,
 }
 
 impl Machine for GossipModel {
@@ -25,6 +27,21 @@ impl Machine for GossipModel {
     type Error = anyhow::Error;
 
     fn transition(mut self, (node, event): Self::Action) -> MachineResult<Self> {
+        match &event {
+            RoundEvent::Initiate => {
+                self.rounds.insert(
+                    node.clone(),
+                    RoundFsm::new(RoundPhase::Initiated, self.gossip_type),
+                );
+            }
+            RoundEvent::Accept => {
+                self.rounds.insert(
+                    node.clone(),
+                    RoundFsm::new(RoundPhase::Accepted, self.gossip_type),
+                );
+            }
+            _ => (),
+        }
         self.rounds
             .transition_mut(node.clone(), event)
             .ok_or(anyhow!("no round for {node:?}"))?
@@ -82,6 +99,7 @@ impl Projection for GossipProjection {
                 Ok(GossipModel {
                     rounds,
                     initiate_tgt,
+                    gossip_type: system.gossip_type,
                 })
             })
             .unwrap();
