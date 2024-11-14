@@ -25,5 +25,5 @@ pub mod sharded_gossip;
 mod common;
 pub use common::*;
 
-#[cfg(feature = "fuzzing")]
+// #[cfg(feature = "test_utils")]
 pub mod model;

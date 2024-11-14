@@ -5,6 +5,7 @@ use crate::{
     gossip::sharded_gossip::{store::AgentInfoSession, RoundState, ShardedGossipWire},
     NodeCert,
 };
+use anyhow::bail;
 use polestar::{fsm::Contextual, prelude::*};
 use proptest_derive::Arbitrary;
 
@@ -20,8 +21,8 @@ pub enum RoundPhase {
     Finished,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
-pub enum RoundEvent {
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, exhaustive::Exhaustive)]
+pub enum RoundAction {
     Initiate,
     Accept,
     AgentDiff,
@@ -34,13 +35,13 @@ pub enum RoundEvent {
 pub type RoundContext = GossipType;
 
 impl Machine for RoundPhase {
-    type Action = (RoundEvent, Arc<RoundContext>);
+    type Action = (RoundAction, Arc<RoundContext>);
     type Fx = ();
-    type Error = Option<anyhow::Error>;
+    type Error = anyhow::Error;
 
     fn transition(mut self, (event, ctx): Self::Action) -> MachineResult<Self> {
         use GossipType as T;
-        use RoundEvent as E;
+        use RoundAction as E;
         use RoundPhase as P;
 
         let next = match (*ctx, self, event) {
@@ -49,12 +50,12 @@ impl Machine for RoundPhase {
             (T::Recent, P::AgentDiffReceived, E::Agents) => P::AgentsReceived,
             (T::Recent, P::AgentsReceived, E::OpDiff) => P::OpDiffReceived,
             (_, P::OpDiffReceived, E::Ops) => P::Finished,
-            (_, P::Finished, _) => return Err(None),
+            (_, P::Finished, _) => bail!("terminal"),
 
             // This might not be right
             (_, _, E::Close) => P::Finished,
 
-            tup => return Err(Some(anyhow::anyhow!("invalid transition: {tup:?}"))),
+            tup => bail!("invalid transition: {tup:?}"),
         };
         Ok((next, ()))
     }
@@ -62,21 +63,21 @@ impl Machine for RoundPhase {
 
 pub type RoundFsm = Contextual<RoundPhase, RoundContext>;
 
-pub fn map_event(msg: ShardedGossipWire) -> Option<RoundEvent> {
+pub fn map_event(msg: ShardedGossipWire) -> Option<RoundAction> {
     match msg {
-        ShardedGossipWire::Initiate(initiate) => Some(RoundEvent::Initiate),
-        ShardedGossipWire::Accept(accept) => Some(RoundEvent::Accept),
-        ShardedGossipWire::Agents(agents) => Some(RoundEvent::AgentDiff),
-        ShardedGossipWire::MissingAgents(missing_agents) => Some(RoundEvent::Agents),
-        ShardedGossipWire::OpBloom(op_bloom) => Some(RoundEvent::OpDiff),
-        ShardedGossipWire::OpRegions(op_regions) => Some(RoundEvent::OpDiff),
-        ShardedGossipWire::MissingOpHashes(missing_op_hashes) => Some(RoundEvent::Ops),
+        ShardedGossipWire::Initiate(initiate) => Some(RoundAction::Initiate),
+        ShardedGossipWire::Accept(accept) => Some(RoundAction::Accept),
+        ShardedGossipWire::Agents(agents) => Some(RoundAction::AgentDiff),
+        ShardedGossipWire::MissingAgents(missing_agents) => Some(RoundAction::Agents),
+        ShardedGossipWire::OpBloom(op_bloom) => Some(RoundAction::OpDiff),
+        ShardedGossipWire::OpRegions(op_regions) => Some(RoundAction::OpDiff),
+        ShardedGossipWire::MissingOpHashes(missing_op_hashes) => Some(RoundAction::Ops),
         ShardedGossipWire::OpBatchReceived(op_batch_received) => None,
 
         ShardedGossipWire::Error(_)
         | ShardedGossipWire::Busy(_)
         | ShardedGossipWire::NoAgents(_)
-        | ShardedGossipWire::AlreadyInProgress(_) => Some(RoundEvent::Close),
+        | ShardedGossipWire::AlreadyInProgress(_) => Some(RoundAction::Close),
     }
 }
 
@@ -87,13 +88,13 @@ pub fn map_state(state: RoundState) -> Option<RoundPhase> {
 #[test]
 #[ignore = "diagram"]
 fn diagram_round_state() {
-    use polestar::diagram::*;
+    use polestar::diagram::exhaustive::*;
 
     tracing::subscriber::set_global_default(tracing_subscriber::FmtSubscriber::new()).unwrap();
 
     let config = DiagramConfig {
-        steps: 100,
-        walks: 100,
+        max_actions: None,
+        max_distance: Some(10),
         ignore_loopbacks: false,
     };
 

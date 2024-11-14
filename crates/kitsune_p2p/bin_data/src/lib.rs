@@ -244,6 +244,8 @@ impl std::fmt::Debug for KitsuneSignature {
     Clone,
     PartialEq,
     Eq,
+    PartialOrd,
+    Ord,
     Hash,
     derive_more::Deref,
     derive_more::From,
