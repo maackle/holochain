@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::anyhow;
 use gossip_model::*;
 use kitsune_p2p_bin_data::NodeCert;
 use kitsune_p2p_types::GossipType;
@@ -9,25 +10,38 @@ use round_model::RoundAction;
 use super::*;
 
 #[test]
-fn scenario1() {
-    // TODO: understand more clearly how initiate_tgt really works
-    let model = GossipModel::new(GossipType::Recent);
-
+fn scenario1() -> anyhow::Result<()> {
     let certs = [
         NodeCert::from(Arc::new([0; 32])),
         NodeCert::from(Arc::new([1; 32])),
         NodeCert::from(Arc::new([2; 32])),
     ];
+    let cert = certs[0].clone();
 
-    let actions = [
-        GossipAction::SetInitiate(certs[0].clone()),
-        GossipAction::Incoming {
-            from: certs[0].clone(),
-            msg: RoundAction::Accept,
-        },
-    ];
+    {
+        let mut model = GossipModel::new(GossipType::Recent);
 
-    let (final_model, _) = model.apply_actions(actions).unwrap();
-
-    assert_eq!(final_model.rounds.len(), 1);
+        model = model
+            .transition_(GossipAction::SetInitiate(cert.clone()))
+            .unwrap();
+        assert_eq!(model.initiate_tgt.as_ref().unwrap().cert, cert);
+        model = model
+            .transition_((certs[0].clone(), RoundAction::Accept).into())
+            .unwrap();
+        model = model
+            .transition_((certs[0].clone(), RoundAction::AgentDiff).into())
+            .unwrap();
+        model = model
+            .transition_((certs[0].clone(), RoundAction::Agents).into())
+            .unwrap();
+        model = model
+            .transition_((certs[0].clone(), RoundAction::OpDiff).into())
+            .unwrap();
+        model = model
+            .transition_((certs[0].clone(), RoundAction::Ops).into())
+            .unwrap();
+        assert!(model.initiate_tgt.is_none());
+        assert_eq!(model.rounds.len(), 1);
+    }
+    Ok(())
 }
