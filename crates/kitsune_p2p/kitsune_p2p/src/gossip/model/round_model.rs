@@ -22,6 +22,7 @@ pub enum RoundPhase {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, exhaustive::Exhaustive)]
+#[must_use]
 pub enum RoundAction {
     Initiate,
     Accept,
@@ -36,7 +37,7 @@ pub type RoundContext = GossipType;
 
 impl Machine for RoundPhase {
     type Action = (RoundAction, Arc<RoundContext>);
-    type Fx = ();
+    type Fx = Vec<RoundAction>;
     type Error = anyhow::Error;
 
     fn transition(mut self, (event, ctx): Self::Action) -> MachineResult<Self> {
@@ -44,20 +45,24 @@ impl Machine for RoundPhase {
         use RoundAction as E;
         use RoundPhase as P;
 
-        let next = match (*ctx, self, event) {
-            (T::Recent, P::Initiated | P::Accepted, E::AgentDiff) => P::AgentDiffReceived,
-            (T::Historical, P::Initiated | P::Accepted, E::OpDiff) => P::OpDiffReceived,
-            (T::Recent, P::AgentDiffReceived, E::Agents) => P::AgentsReceived,
-            (T::Recent, P::AgentsReceived, E::OpDiff) => P::OpDiffReceived,
-            (_, P::OpDiffReceived, E::Ops) => P::Finished,
+        Ok(match (*ctx, self, event) {
+            (T::Recent, P::Initiated | P::Accepted, E::AgentDiff) => {
+                (P::AgentDiffReceived, vec![E::Agents])
+            }
+            (T::Recent, P::AgentDiffReceived, E::Agents) => (P::AgentsReceived, vec![E::OpDiff]),
+
+            (T::Historical, P::Initiated | P::Accepted, E::OpDiff) => {
+                (P::OpDiffReceived, vec![E::Ops])
+            }
+            (T::Recent, P::AgentsReceived, E::OpDiff) => (P::OpDiffReceived, vec![E::Ops]),
+            (_, P::OpDiffReceived, E::Ops) => (P::Finished, vec![]),
             (_, P::Finished, _) => bail!("terminal"),
 
             // This might not be right
-            (_, _, E::Close) => P::Finished,
+            (_, _, E::Close) => (P::Finished, vec![]),
 
             tup => bail!("invalid transition: {tup:?}"),
-        };
-        Ok((next, ()))
+        })
     }
 }
 

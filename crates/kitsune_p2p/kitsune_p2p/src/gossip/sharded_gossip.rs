@@ -38,7 +38,7 @@ use self::state_map::RoundStateMap;
 use self::store::AgentInfoSession;
 use crate::metrics::MetricsSync;
 
-use super::model::gossip_model::GossipProjection;
+use super::model::peer_model::PeerProjection;
 use super::{HowToConnect, MetaOpKey};
 
 pub use bandwidth::BandwidthThrottles;
@@ -175,18 +175,19 @@ impl ShardedGossip {
                 polestar_sender: Some(polestar_sender),
             };
 
-            let mut model = GossipProjection
+            let mut model = PeerProjection
                 .map_state(&gossip)
                 .expect("POLESTAR model mapping failed");
             tokio::spawn(async move {
                 use polestar::Machine;
                 while let Ok(e) = polestar_receiver.recv() {
-                    let action = GossipProjection
+                    let action = PeerProjection
                         .map_event(e)
                         .expect("POLESTAR event mapping failed");
-                    model = model
-                        .transition_(action)
+                    let (next, _fx) = model
+                        .transition(action)
                         .expect("POLESTAR model failed to transition");
+                    model = next;
                 }
             });
 
@@ -506,9 +507,9 @@ pub struct ShardedGossipLocal {
 }
 
 #[cfg(feature = "fuzzing")]
-pub type PolestarSender = Option<std::sync::mpsc::Sender<(NodeCert, ShardedGossipWire)>>;
+pub(crate) type PolestarSender = Option<std::sync::mpsc::Sender<(NodeCert, ShardedGossipWire)>>;
 #[cfg(not(feature = "fuzzing"))]
-pub type PolestarSender = Option<()>;
+pub(crate) type PolestarSender = Option<()>;
 
 /// Incoming gossip.
 type Incoming = (MetaNetCon, String, ShardedGossipWire, usize);
@@ -521,12 +522,12 @@ pub type NodeId = NodeCert;
 /// Info associated with an outgoing gossip target
 #[derive(Debug)]
 pub struct ShardedGossipTarget {
-    pub remote_agent_list: Vec<AgentInfoSigned>,
-    pub cert: NodeCert,
-    pub tie_break: u32,
-    pub when_initiated: Option<tokio::time::Instant>,
+    pub(crate) remote_agent_list: Vec<AgentInfoSigned>,
+    pub(crate) cert: NodeCert,
+    pub(crate) tie_break: u32,
+    pub(crate) when_initiated: Option<tokio::time::Instant>,
     #[allow(dead_code)]
-    pub url: TxUrl,
+    pub(crate) url: TxUrl,
 }
 
 /// The internal mutable state for [`ShardedGossipLocal`]

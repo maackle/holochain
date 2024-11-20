@@ -5945,6 +5945,7 @@ dependencies = [
 name = "polestar"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "derive_more",
  "exhaustive",
  "num-derive",

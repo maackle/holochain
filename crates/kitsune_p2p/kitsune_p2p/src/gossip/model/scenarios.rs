@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use gossip_model::*;
 use kitsune_p2p_bin_data::NodeCert;
 use kitsune_p2p_types::GossipType;
+use peer_model::*;
 use polestar::prelude::*;
 use round_model::RoundAction;
 
@@ -21,38 +21,41 @@ fn scenario1() -> anyhow::Result<()> {
     let cert = certs[0].clone();
 
     {
-        let tgt = P::atom("tgt".into(), |m: &GossipModel| m.initiate_tgt.is_some());
-        let mut model = GossipModel::new(GossipType::Recent)
+        let tgt = P::atom("tgt".into(), |m: &PeerModel| m.initiate_tgt.is_some());
+        let mut model = PeerModel::new(GossipType::Recent)
             .checked(|s| s)
             .predicate(P::always(tgt.clone().implies(P::eventually(P::not(tgt)))))
-            .predicate(P::eventually(P::atom(
-                "1-round".into(),
-                |m: &GossipModel| m.rounds.len() == 1,
-            )));
+            .predicate(P::eventually(P::atom("1-round".into(), |m: &PeerModel| {
+                m.rounds.len() == 1
+            })));
 
         model = model
-            .transition_(GossipAction::SetInitiate(cert.clone()))
-            .unwrap();
+            .transition(NodeAction::SetInitiate(cert.clone()))
+            .unwrap()
+            .0;
         assert_eq!(model.initiate_tgt.as_ref().unwrap().cert, cert);
         model = model
-            .transition_((cert.clone(), RoundAction::Accept).into())
-            .unwrap();
+            .transition((cert.clone(), RoundAction::Accept).into())
+            .unwrap()
+            .0;
         model = model
-            .transition_((cert.clone(), RoundAction::AgentDiff).into())
-            .unwrap();
+            .transition((cert.clone(), RoundAction::AgentDiff).into())
+            .unwrap()
+            .0;
         model = model
-            .transition_((cert.clone(), RoundAction::Agents).into())
-            .unwrap();
+            .transition((cert.clone(), RoundAction::Agents).into())
+            .unwrap()
+            .0;
         model = model
-            .transition_((cert.clone(), RoundAction::OpDiff).into())
-            .unwrap();
+            .transition((cert.clone(), RoundAction::OpDiff).into())
+            .unwrap()
+            .0;
         model = model
-            .transition_((cert.clone(), RoundAction::Ops).into())
-            .unwrap();
+            .transition((cert.clone(), RoundAction::Ops).into())
+            .unwrap()
+            .0;
         assert!(model.initiate_tgt.is_none());
         assert_eq!(model.rounds.len(), 0);
-
-        model.finalize().unwrap();
     }
     Ok(())
 }
