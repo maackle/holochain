@@ -11,6 +11,8 @@ use super::*;
 
 #[test]
 fn scenario1() -> anyhow::Result<()> {
+    use polestar::fsm::checked::Predicate as P;
+    use polestar::prelude::*;
     let certs = [
         NodeCert::from(Arc::new([0; 32])),
         NodeCert::from(Arc::new([1; 32])),
@@ -19,29 +21,32 @@ fn scenario1() -> anyhow::Result<()> {
     let cert = certs[0].clone();
 
     {
-        let mut model = GossipModel::new(GossipType::Recent);
+        let tgt = P::atom("tgt".into(), |m: &GossipModel| m.initiate_tgt.is_some());
+        let mut model = GossipModel::new(GossipType::Recent)
+            .checked(|s| s)
+            .predicate(P::always(tgt.clone().implies(P::eventually(P::not(tgt)))));
 
         model = model
             .transition_(GossipAction::SetInitiate(cert.clone()))
             .unwrap();
         assert_eq!(model.initiate_tgt.as_ref().unwrap().cert, cert);
         model = model
-            .transition_((certs[0].clone(), RoundAction::Accept).into())
+            .transition_((cert.clone(), RoundAction::Accept).into())
             .unwrap();
         model = model
-            .transition_((certs[0].clone(), RoundAction::AgentDiff).into())
+            .transition_((cert.clone(), RoundAction::AgentDiff).into())
             .unwrap();
         model = model
-            .transition_((certs[0].clone(), RoundAction::Agents).into())
+            .transition_((cert.clone(), RoundAction::Agents).into())
             .unwrap();
         model = model
-            .transition_((certs[0].clone(), RoundAction::OpDiff).into())
+            .transition_((cert.clone(), RoundAction::OpDiff).into())
             .unwrap();
         model = model
-            .transition_((certs[0].clone(), RoundAction::Ops).into())
+            .transition_((cert.clone(), RoundAction::Ops).into())
             .unwrap();
         assert!(model.initiate_tgt.is_none());
-        assert_eq!(model.rounds.len(), 1);
+        assert_eq!(model.rounds.len(), 0);
     }
     Ok(())
 }

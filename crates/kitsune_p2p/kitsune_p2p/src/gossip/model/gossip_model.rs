@@ -29,6 +29,13 @@ impl GossipModel {
             gossip_type,
         }
     }
+
+    fn finish_round(&mut self, peer: NodeCert) {
+        if self.initiate_tgt.as_ref().map(|t| &t.cert) == Some(&peer) {
+            self.initiate_tgt = None;
+        }
+        self.rounds.remove(&peer);
+    }
 }
 
 impl Machine for GossipModel {
@@ -46,6 +53,10 @@ impl Machine for GossipModel {
                         tie_break: 0,
                     });
                 }
+            }
+            GossipAction::Timeout(peer) => {
+                self.rounds.remove(&peer);
+                self.finish_round(peer);
             }
             GossipAction::Incoming { from, msg } => match msg {
                 RoundAction::Initiate => {
@@ -77,7 +88,9 @@ impl Machine for GossipModel {
                         .remove(&from)
                         .ok_or(anyhow!("no round for {from:?}"))?
                         .transition_(action)?;
-                    if !matches!(&*round, RoundPhase::Finished) {
+                    if matches!(&*round, RoundPhase::Finished) {
+                        self.finish_round(from);
+                    } else {
                         self.rounds.insert(from, round);
                     }
                 }
@@ -97,6 +110,7 @@ pub struct Tgt {
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, derive_more::From)]
 pub enum GossipAction {
     SetInitiate(NodeCert),
+    Timeout(NodeCert),
     #[from]
     Incoming {
         from: NodeCert,
