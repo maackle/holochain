@@ -24,7 +24,11 @@ fn scenario1() -> anyhow::Result<()> {
         let tgt = P::atom("tgt".into(), |m: &GossipModel| m.initiate_tgt.is_some());
         let mut model = GossipModel::new(GossipType::Recent)
             .checked(|s| s)
-            .predicate(P::always(tgt.clone().implies(P::eventually(P::not(tgt)))));
+            .predicate(P::always(tgt.clone().implies(P::eventually(P::not(tgt)))))
+            .predicate(P::eventually(P::atom(
+                "1-round".into(),
+                |m: &GossipModel| m.rounds.len() == 1,
+            )));
 
         model = model
             .transition_(GossipAction::SetInitiate(cert.clone()))
@@ -47,6 +51,8 @@ fn scenario1() -> anyhow::Result<()> {
             .unwrap();
         assert!(model.initiate_tgt.is_none());
         assert_eq!(model.rounds.len(), 0);
+
+        model.finalize().unwrap();
     }
     Ok(())
 }
