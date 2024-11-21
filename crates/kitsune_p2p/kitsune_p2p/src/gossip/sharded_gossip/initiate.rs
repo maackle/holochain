@@ -122,6 +122,9 @@ impl ShardedGossipLocal {
                     i.initiate_tgt = None;
                     Ok(())
                 })?;
+                self.polestar_sender
+                    .as_ref()
+                    .map(|tx| tx.send(ShardedGossipEvent::TieBreakLoser(peer_cert.clone())));
             }
         }
 

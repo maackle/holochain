@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
 use crate::{
     dependencies::kitsune_p2p_types::{GossipType, KitsuneResult},
@@ -10,30 +10,53 @@ use proptest_derive::Arbitrary;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
 pub enum RoundPhase {
-    /// bool is true if we initiated
+    /// bool is true if we "must send"
     Started(bool),
 
     AgentDiffReceived,
+    /// bool is true if we "must send"
+    AgentsReceived(bool),
+
+    OpDiffReceived,
+    Finished,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum RoundPhaseCombined {
+    /// bool is true if we "must send"
+    Started,
+
+    AgentDiffReceived,
+    /// bool is true if we "must send"
     AgentsReceived,
 
     OpDiffReceived,
     Finished,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
-pub struct RoundState {
-    pub phase: RoundPhase,
-    pub must_send: bool,
-}
-
-impl RoundState {
-    pub fn new(phase: RoundPhase) -> Self {
-        Self {
-            phase,
-            must_send: false,
+impl RoundPhase {
+    fn combined(&self) -> RoundPhaseCombined {
+        match self {
+            RoundPhase::Started(_) => RoundPhaseCombined::Started,
+            RoundPhase::AgentDiffReceived => RoundPhaseCombined::AgentDiffReceived,
+            RoundPhase::AgentsReceived(_) => RoundPhaseCombined::AgentsReceived,
+            RoundPhase::OpDiffReceived => RoundPhaseCombined::OpDiffReceived,
+            RoundPhase::Finished => RoundPhaseCombined::Finished,
         }
     }
 }
+
+pub type RoundState = RoundPhase;
+// #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
+// pub struct RoundState {
+//     pub phase: RoundPhase,
+// }
+
+// impl RoundState {
+//     pub fn new(phase: RoundPhase) -> Self {
+//         Self { phase }
+//     }
+// }
 
 #[derive(
     Debug, Clone, Eq, PartialEq, Hash, Arbitrary, exhaustive::Exhaustive, derive_more::From,
@@ -76,49 +99,56 @@ impl Machine for RoundState {
 
         Ok(match action {
             RoundAction::Msg(msg) => {
-                let (phase, fx) = match (*ctx, msg, self.phase, self.must_send) {
-                    (T::Recent, M::AgentDiff, P::Started(_), true) => {
+                let (phase, fx) = match (*ctx, msg, self) {
+                    (T::Recent, M::AgentDiff, P::Started(true)) => {
                         (P::AgentDiffReceived, vec![M::Agents])
                     }
-                    (T::Recent, M::AgentDiff, P::Started(_), false) => {
-                        (P::AgentsReceived, vec![M::OpDiff])
+                    (T::Recent, M::AgentDiff, P::Started(false)) => {
+                        (P::AgentsReceived(false), vec![M::OpDiff])
                     }
 
-                    (T::Recent, M::Agents, P::AgentDiffReceived, true) => {
-                        (P::AgentsReceived, vec![M::OpDiff])
+                    (T::Recent, M::Agents, P::AgentDiffReceived) => {
+                        (P::AgentsReceived(false), vec![M::OpDiff])
                     }
 
-                    (T::Recent, M::OpDiff, P::AgentsReceived, true) => {
+                    // OpDiff can be received in Started when agents already match
+                    (T::Recent, M::OpDiff, P::Started(true) | P::AgentsReceived(true)) => {
                         (P::OpDiffReceived, vec![M::Ops])
                     }
-                    (T::Recent, M::OpDiff, P::AgentsReceived, false) => (P::Finished, vec![]),
+                    (T::Recent, M::OpDiff, P::AgentsReceived(false)) => (P::Finished, vec![]),
 
-                    (T::Historical, M::OpDiff, P::Started(_), true) => {
+                    (T::Historical, M::OpDiff, P::Started(true)) => {
                         (P::OpDiffReceived, vec![M::Ops])
                     }
-                    (T::Historical, M::OpDiff, P::Started(_), false) => (P::Finished, vec![]),
+                    (T::Recent, M::Ops, P::OpDiffReceived) => (P::Finished, vec![]),
+                    (T::Historical, M::OpDiff, P::Started(false)) => (P::Finished, vec![]),
+                    (T::Historical, M::Ops, P::OpDiffReceived) => (P::Finished, vec![]),
 
-                    (_, M::Ops, P::OpDiffReceived, true) => (P::Finished, vec![]),
-                    (_, _, P::Finished, _) => bail!("terminal"),
+                    (_, _, P::Finished) => bail!("terminal"),
 
                     // This might not be right
-                    (_, M::Close, _, _) => (P::Finished, vec![]),
+                    (_, M::Close, _) => (P::Finished, vec![]),
 
                     tup => bail!("invalid transition: {tup:?}"),
                 };
-                (
-                    Self {
-                        phase,
-                        must_send: false,
-                    },
-                    fx,
-                )
+                (phase, fx)
             }
+
             RoundAction::MustSend => {
-                if self.must_send {
-                    bail!("must_send already set");
-                } else {
-                    self.must_send = true;
+                match (*ctx, &mut self) {
+                    (
+                        T::Recent,
+                        P::Started(ref mut must_send) | P::AgentsReceived(ref mut must_send),
+                    )
+                    | (T::Historical, P::Started(ref mut must_send)) => {
+                        if *must_send {
+                            bail!("must_send already set")
+                        } else {
+                            *must_send = true
+                        }
+                    }
+
+                    tup => bail!("invalid transition: {tup:?}"),
                 }
                 (self, vec![])
             }
@@ -164,10 +194,15 @@ fn diagram_round_state() {
         ignore_loopbacks: false,
     };
 
-    print_dot_state_diagram(RoundPhase::Initiated.context(GossipType::Recent), &config);
-
-    print_dot_state_diagram(
-        RoundPhase::Initiated.context(GossipType::Historical),
+    print_dot_state_diagram_mapped(
+        (RoundPhase::Started(false)).context(GossipType::Recent),
         &config,
+        |m| m.combined(),
+    );
+
+    print_dot_state_diagram_mapped(
+        (RoundPhase::Started(false)).context(GossipType::Historical),
+        &config,
+        |m| m.combined(),
     );
 }

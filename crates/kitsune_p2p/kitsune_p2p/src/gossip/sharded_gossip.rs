@@ -25,6 +25,7 @@ use kitsune_p2p_types::dht_arc::DhtArcSet;
 use kitsune_p2p_types::metrics::*;
 use kitsune_p2p_types::tx2::tx2_utils::*;
 use kitsune_p2p_types::*;
+use parking_lot::Mutex;
 use polestar::prelude::Projection;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::{TryFrom, TryInto};
@@ -137,6 +138,9 @@ impl Stats {
     }
 }
 
+static PEER_PROJECTION: once_cell::sync::Lazy<Mutex<PeerProjection>> =
+    once_cell::sync::Lazy::new(|| Mutex::new(PeerProjection::default()));
+
 impl ShardedGossip {
     /// Constructor
     #[allow(clippy::too_many_arguments)]
@@ -181,35 +185,50 @@ impl ShardedGossip {
                 polestar_sender: Some(polestar_sender),
             };
 
-            let mut projection = PeerProjection::default();
-            let mut model = projection
+            let mut model = PEER_PROJECTION
+                .lock()
                 .map_state(&gossip)
                 .expect("POLESTAR model mapping failed");
 
             tokio::spawn(async move {
                 use polestar::Machine;
+                let mut actions = vec![];
+                let id = PEER_PROJECTION.lock().id(local_cert.clone());
                 while let Ok(event) = polestar_receiver.recv() {
-                    // dbg!(&model);
+                    // Keep this locked for the whole transition so output doesn't get interleaved.
+                    let mut projection = PEER_PROJECTION.lock();
                     let action = projection
                         .map_event(event)
                         .expect("POLESTAR event mapping failed");
-                    // dbg!(id, &action);
+
+                    eprintln!("\nTRANSITION on {id:?}");
+                    eprintln!(" - event: {action:?}");
+
+                    actions.push(action.clone());
+
                     match model.clone().transition(action.clone()) {
                         Ok((next, _fx)) => model = next,
-                        Err(e) => {
+                        Err(error) => {
+                            eprintln!();
+                            eprintln!();
                             eprintln!("POLESTAR transition failure");
                             eprintln!("===========================");
                             eprintln!();
-                            eprintln!("Error: {:?}", e);
+                            eprintln!("Cert: {:?}", local_cert);
+                            eprintln!("Id: {:?}", id);
                             eprintln!();
-                            eprintln!("Last state: {:#?}", model);
+                            eprintln!("Last model state: {:#?}", model);
                             eprintln!();
-                            eprintln!("Last action: {:#?}", action);
+                            eprintln!("All actions (last one failed): {:#?}", actions);
+                            eprintln!();
+                            eprintln!("Error: {:?}", error);
                             eprintln!();
 
-                            panic!("POLESTAR model failed to transition. See output for details.");
+                            panic!("POLESTAR model failed to transition. See output for details. Error: {error:?}");
                         }
                     }
+
+                    eprintln!(" - model: {model:?}");
                 }
             });
 
@@ -536,6 +555,7 @@ pub enum ShardedGossipEvent {
     #[from]
     Msg(NodeCert, ShardedGossipWire),
     MustSend(NodeCert),
+    TieBreakLoser(NodeCert),
 }
 
 #[cfg(feature = "fuzzing")]

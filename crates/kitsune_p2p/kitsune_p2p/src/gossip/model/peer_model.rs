@@ -70,6 +70,17 @@ impl Machine for PeerModel {
                 self.finish_round(&peer);
                 vec![]
             }
+            NodeAction::TieBreakLoser(peer) => {
+                if let Some(tgt) = self.initiate_tgt.take() {
+                    if tgt.cert == peer {
+                        vec![]
+                    } else {
+                        bail!("model error: tie break winner is not the initiate target");
+                    }
+                } else {
+                    bail!("model error: there was no initiate target");
+                }
+            }
             NodeAction::Incoming {
                 from,
                 msg: RoundMsg::Initiate,
@@ -79,13 +90,12 @@ impl Machine for PeerModel {
                     vec![]
                     // bail!("already a round for {from:?}");
                 } else if self.initiate_tgt.as_ref().map(|t| &t.cert) == Some(&from) {
-                    tracing::error!("invalid Initiate from node that is initiate_tgt");
+                    tracing::warn!("Initiate from node that is initiate_tgt. This is expected to happen once per pair when there is a tie breaker.");
                     vec![]
-                    // bail!("invalid Initiate from node that is initiate_tgt");
                 } else {
                     self.rounds.insert(
                         from.clone(),
-                        RoundState::new(RoundPhase::Started(false)).context(self.gossip_type),
+                        (RoundPhase::Started(false)).context(self.gossip_type),
                     );
                     vec![
                         (from.clone(), RoundMsg::Accept),
@@ -110,7 +120,7 @@ impl Machine for PeerModel {
                 } else {
                     self.rounds.insert(
                         from.clone(),
-                        RoundState::new(RoundPhase::Started(true)).context(self.gossip_type),
+                        (RoundPhase::Started(false)).context(self.gossip_type),
                     );
                     if self.gossip_type == GossipType::Recent {
                         vec![(from, RoundMsg::AgentDiff)]
@@ -127,19 +137,6 @@ impl Machine for PeerModel {
                 vec![]
             }
 
-            // action @ (NodeAction::Incoming { from, .. } => {
-            //     let (round, fx) = self
-            //         .rounds
-            //         .remove(&from)
-            //         .ok_or(anyhow!("no round for {from:?}"))?
-            //         .transition(action)?;
-            //     if matches!(&*round, RoundPhase::Finished) {
-            //         self.finish_round(&from);
-            //     } else {
-            //         self.rounds.insert(from.clone(), round);
-            //     }
-            //     fx.into_iter().map(|msg| (from.clone(), msg)).collect()
-            // }
             action => {
                 let from = action.node_id();
                 if let Some(round_action) = action.into_round_action() {
@@ -148,7 +145,7 @@ impl Machine for PeerModel {
                         .remove(&from)
                         .ok_or(anyhow!("no round for {from:?}"))?
                         .transition(round_action)?;
-                    if matches!(round.phase, RoundPhase::Finished) {
+                    if matches!(*round, RoundPhase::Finished) {
                         self.finish_round(&from);
                     } else {
                         self.rounds.insert(from.clone(), round);
@@ -169,6 +166,7 @@ pub struct Tgt {
     /// In the SUT, the tie breaker is a random u32.
     /// To minimize state space and to greatly increase the chance of collision,
     /// we use a bool instead: true is greater than false.
+    // TODO: this is pretty bogus, rethink this.
     pub tie_break: bool,
 }
 
@@ -182,6 +180,7 @@ pub enum NodeAction {
         msg: RoundMsg,
     },
     MustSend(NodeId),
+    TieBreakLoser(NodeId),
 }
 
 impl NodeAction {
@@ -191,6 +190,7 @@ impl NodeAction {
             NodeAction::Timeout(node) => *node,
             NodeAction::SetInitiate(node, _) => *node,
             NodeAction::MustSend(node) => *node,
+            NodeAction::TieBreakLoser(node) => *node,
         }
     }
 
@@ -258,6 +258,9 @@ impl Projection for PeerProjection {
             )),
             ShardedGossipEvent::MustSend(node_cert) => {
                 Some(NodeAction::MustSend(self.id(node_cert)))
+            }
+            ShardedGossipEvent::TieBreakLoser(node_cert) => {
+                Some(NodeAction::TieBreakLoser(self.id(node_cert)))
             }
         }
     }
