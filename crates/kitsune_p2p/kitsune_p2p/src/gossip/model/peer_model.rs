@@ -2,8 +2,11 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     dependencies::kitsune_p2p_types::{KitsuneError, KitsuneResult},
-    gossip::sharded_gossip::{
-        store::AgentInfoSession, Initiate, ShardedGossipLocal, ShardedGossipWire,
+    gossip::{
+        model::round_model::RoundState,
+        sharded_gossip::{
+            store::AgentInfoSession, Initiate, ShardedGossipLocal, ShardedGossipWire,
+        },
     },
 };
 use anyhow::{anyhow, bail};
@@ -18,7 +21,7 @@ use proptest_derive::Arbitrary;
 
 use crate::gossip::model::round_model::{RoundAction, RoundFsm, RoundPhase};
 
-use super::{NodeId, PEERS};
+use super::{round_model::RoundMsg, NodeId, PEERS};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, derive_more::From)]
 pub struct PeerModel {
@@ -46,7 +49,7 @@ impl PeerModel {
 
 impl Machine for PeerModel {
     type Action = NodeAction;
-    type Fx = Vec<(NodeId, RoundAction)>;
+    type Fx = Vec<(NodeId, RoundMsg)>;
     type Error = anyhow::Error;
 
     #[allow(clippy::map_entry)]
@@ -59,73 +62,99 @@ impl Machine for PeerModel {
                         tie_break,
                     });
                 }
-                vec![(with_node, RoundAction::Initiate)]
+                vec![(with_node, RoundMsg::Initiate)]
             }
             NodeAction::Timeout(peer) => {
                 self.rounds.remove(&peer);
                 self.finish_round(&peer);
                 vec![]
             }
-            NodeAction::Incoming { from, msg } => match msg {
-                RoundAction::Initiate => {
-                    if self.rounds.contains_key(&from) {
-                        tracing::error!("already a round for {from:?}");
-                        vec![]
-                        // bail!("already a round for {from:?}");
-                    } else if self.initiate_tgt.as_ref().map(|t| &t.cert) == Some(&from) {
-                        bail!("invalid Initiate from node that is initiate_tgt");
-                    } else {
-                        self.rounds.insert(
-                            from.clone(),
-                            RoundPhase::Initiated.context(self.gossip_type),
-                        );
-                        vec![
-                            (from.clone(), RoundAction::Accept),
-                            if self.gossip_type == GossipType::Recent {
-                                (from, RoundAction::AgentDiff)
-                            } else {
-                                (from, RoundAction::OpDiff)
-                            },
-                        ]
-                    }
-                }
-                RoundAction::Accept => {
-                    if self.rounds.contains_key(&from) {
-                        tracing::error!("already a round for {from:?}");
-                        vec![]
-                        // bail!("already a round for {from:?}");
-                    } else if self.initiate_tgt.as_ref().map(|t| &t.cert) != Some(&from) {
-                        bail!("invalid Accept from node that is not initiate_tgt");
-                    } else {
-                        self.rounds.insert(
-                            from.clone(),
-                            RoundPhase::Initiated.context(self.gossip_type),
-                        );
-                        if self.gossip_type == GossipType::Recent {
-                            vec![(from, RoundAction::AgentDiff)]
-                        } else {
-                            vec![(from, RoundAction::OpDiff)]
-                        }
-                    }
-                }
-                RoundAction::Close => {
-                    self.rounds.remove(&from);
+            NodeAction::Incoming {
+                from,
+                msg: RoundMsg::Initiate,
+            } => {
+                if self.rounds.contains_key(&from) {
+                    tracing::error!("already a round for {from:?}");
                     vec![]
+                    // bail!("already a round for {from:?}");
+                } else if self.initiate_tgt.as_ref().map(|t| &t.cert) == Some(&from) {
+                    bail!("invalid Initiate from node that is initiate_tgt");
+                } else {
+                    self.rounds.insert(
+                        from.clone(),
+                        RoundState::new(RoundPhase::Started(false)).context(self.gossip_type),
+                    );
+                    vec![
+                        (from.clone(), RoundMsg::Accept),
+                        if self.gossip_type == GossipType::Recent {
+                            (from, RoundMsg::AgentDiff)
+                        } else {
+                            (from, RoundMsg::OpDiff)
+                        },
+                    ]
                 }
-                action => {
+            }
+            NodeAction::Incoming {
+                from,
+                msg: RoundMsg::Accept,
+            } => {
+                if self.rounds.contains_key(&from) {
+                    tracing::error!("already a round for {from:?}");
+                    vec![]
+                    // bail!("already a round for {from:?}");
+                } else if self.initiate_tgt.as_ref().map(|t| &t.cert) != Some(&from) {
+                    bail!("invalid Accept from node that is not initiate_tgt");
+                } else {
+                    self.rounds.insert(
+                        from.clone(),
+                        RoundState::new(RoundPhase::Started(true)).context(self.gossip_type),
+                    );
+                    if self.gossip_type == GossipType::Recent {
+                        vec![(from, RoundMsg::AgentDiff)]
+                    } else {
+                        vec![(from, RoundMsg::OpDiff)]
+                    }
+                }
+            }
+            NodeAction::Incoming {
+                from,
+                msg: RoundMsg::Close,
+            } => {
+                self.rounds.remove(&from);
+                vec![]
+            }
+
+            // action @ (NodeAction::Incoming { from, .. } => {
+            //     let (round, fx) = self
+            //         .rounds
+            //         .remove(&from)
+            //         .ok_or(anyhow!("no round for {from:?}"))?
+            //         .transition(action)?;
+            //     if matches!(&*round, RoundPhase::Finished) {
+            //         self.finish_round(&from);
+            //     } else {
+            //         self.rounds.insert(from.clone(), round);
+            //     }
+            //     fx.into_iter().map(|msg| (from.clone(), msg)).collect()
+            // }
+            action => {
+                let from = action.node_id();
+                if let Some(round_action) = action.into_round_action() {
                     let (round, fx) = self
                         .rounds
                         .remove(&from)
                         .ok_or(anyhow!("no round for {from:?}"))?
-                        .transition(action)?;
-                    if matches!(&*round, RoundPhase::Finished) {
+                        .transition(round_action)?;
+                    if matches!(round.phase, RoundPhase::Finished) {
                         self.finish_round(&from);
                     } else {
                         self.rounds.insert(from.clone(), round);
                     }
                     fx.into_iter().map(|msg| (from.clone(), msg)).collect()
+                } else {
+                    bail!("nope")
                 }
-            },
+            }
         };
         Ok((self, fx))
     }
@@ -147,8 +176,35 @@ pub enum NodeAction {
     #[from]
     Incoming {
         from: NodeId,
-        msg: RoundAction,
+        msg: RoundMsg,
     },
+    NoDiff(NodeId),
+}
+
+impl NodeAction {
+    pub fn node_id(&self) -> NodeId {
+        match self {
+            NodeAction::Incoming { from, .. } => *from,
+            NodeAction::Timeout(node) => *node,
+            NodeAction::SetInitiate(node, _) => *node,
+            NodeAction::NoDiff(node) => *node,
+        }
+    }
+
+    pub fn into_round_action(self) -> Option<RoundAction> {
+        match self {
+            NodeAction::Incoming { msg, .. } => Some(RoundAction::Msg(msg)),
+            NodeAction::NoDiff(from) => Some(RoundAction::NoDiff),
+            _ => None,
+        }
+    }
+
+    pub fn from_round_action(from: NodeId, action: RoundAction) -> Self {
+        match action {
+            RoundAction::Msg(msg) => NodeAction::Incoming { from, msg },
+            RoundAction::NoDiff => NodeAction::NoDiff(from),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -172,7 +228,8 @@ impl Projection for PeerProjection {
     }
 
     fn map_event(&mut self, (from, msg): Self::Event) -> Option<NodeAction> {
-        super::round_model::map_event(msg).map(|msg| NodeAction::Incoming { from, msg })
+        unimplemented!("actually, this needs to be reworked")
+        // super::round_model::map_event(msg).map(|msg| NodeAction::Incoming { from, msg })
     }
 
     fn map_state(&mut self, system: &Self::System) -> Option<PeerModel> {

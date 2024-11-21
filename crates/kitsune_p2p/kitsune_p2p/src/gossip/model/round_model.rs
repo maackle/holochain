@@ -2,90 +2,151 @@ use std::sync::Arc;
 
 use crate::{
     dependencies::kitsune_p2p_types::{GossipType, KitsuneResult},
-    gossip::sharded_gossip::{store::AgentInfoSession, RoundState, ShardedGossipWire},
+    gossip::sharded_gossip::{store::AgentInfoSession, ShardedGossipWire},
 };
 use anyhow::bail;
-use polestar::{fsm::Contextual, prelude::*};
+use polestar::{dfa::Contextual, prelude::*};
 use proptest_derive::Arbitrary;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
 pub enum RoundPhase {
-    Initiated,
-    Accepted,
+    /// bool is true if we initiated
+    Started(bool),
 
     AgentDiffReceived,
     AgentsReceived,
-    OpDiffReceived,
 
+    OpDiffReceived,
     Finished,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
+pub struct RoundState {
+    pub phase: RoundPhase,
+    pub no_diff: bool,
+}
+
+impl RoundState {
+    pub fn new(phase: RoundPhase) -> Self {
+        Self {
+            phase,
+            no_diff: false,
+        }
+    }
+}
+
+#[derive(
+    Debug, Clone, Eq, PartialEq, Hash, Arbitrary, exhaustive::Exhaustive, derive_more::From,
+)]
+pub enum RoundAction {
+    /// A message from another peer
+    Msg(RoundMsg),
+    /// Special model-specific action indicating that no diff was found,
+    /// letting us bump to the next phase.
+    /// (this is kind of like an epsilon transition, in DFA terms.)
+    NoDiff,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, exhaustive::Exhaustive)]
 #[must_use]
-pub enum RoundAction {
+pub enum RoundMsg {
     Initiate,
     Accept,
+
     AgentDiff,
     Agents,
+
     OpDiff,
     Ops,
+
     Close,
 }
 
 pub type RoundContext = GossipType;
 
-impl Machine for RoundPhase {
+impl Machine for RoundState {
     type Action = (RoundAction, Arc<RoundContext>);
-    type Fx = Vec<RoundAction>;
+    type Fx = Vec<RoundMsg>;
     type Error = anyhow::Error;
 
-    fn transition(mut self, (event, ctx): Self::Action) -> MachineResult<Self> {
+    fn transition(mut self, (action, ctx): Self::Action) -> MachineResult<Self> {
         use GossipType as T;
-        use RoundAction as E;
+        use RoundMsg as M;
         use RoundPhase as P;
 
-        Ok(match (*ctx, self, event) {
-            (T::Recent, P::Initiated | P::Accepted, E::AgentDiff) => {
-                (P::AgentDiffReceived, vec![E::Agents])
+        Ok(match action {
+            RoundAction::Msg(msg) => {
+                let (phase, fx) = match (*ctx, msg, self.phase, self.no_diff) {
+                    (T::Recent, M::AgentDiff, P::Started(_), false) => {
+                        (P::AgentDiffReceived, vec![M::Agents])
+                    }
+                    (T::Recent, M::AgentDiff, P::Started(_), true) => {
+                        (P::AgentsReceived, vec![M::OpDiff])
+                    }
+
+                    (T::Recent, M::Agents, P::AgentDiffReceived, false) => {
+                        (P::AgentsReceived, vec![M::OpDiff])
+                    }
+
+                    (T::Recent, M::OpDiff, P::AgentsReceived, false) => {
+                        (P::OpDiffReceived, vec![M::Ops])
+                    }
+                    (T::Recent, M::OpDiff, P::AgentsReceived, true) => (P::Finished, vec![]),
+
+                    (T::Historical, M::OpDiff, P::Started(_), false) => {
+                        (P::OpDiffReceived, vec![M::Ops])
+                    }
+                    (T::Historical, M::OpDiff, P::Started(_), true) => (P::Finished, vec![]),
+
+                    (_, M::Ops, P::OpDiffReceived, false) => (P::Finished, vec![]),
+                    (_, _, P::Finished, _) => bail!("terminal"),
+
+                    // This might not be right
+                    (_, M::Close, _, _) => (P::Finished, vec![]),
+
+                    tup => bail!("invalid transition: {tup:?}"),
+                };
+                (
+                    Self {
+                        phase,
+                        no_diff: false,
+                    },
+                    fx,
+                )
             }
-            (T::Recent, P::AgentDiffReceived, E::Agents) => (P::AgentsReceived, vec![E::OpDiff]),
-
-            (T::Historical, P::Initiated | P::Accepted, E::OpDiff) => {
-                (P::OpDiffReceived, vec![E::Ops])
+            RoundAction::NoDiff => {
+                if self.no_diff {
+                    bail!("no_diff already set");
+                } else {
+                    self.no_diff = true;
+                }
+                (self, vec![])
             }
-            (T::Recent, P::AgentsReceived, E::OpDiff) => (P::OpDiffReceived, vec![E::Ops]),
-            (_, P::OpDiffReceived, E::Ops) => (P::Finished, vec![]),
-            (_, P::Finished, _) => bail!("terminal"),
-
-            // This might not be right
-            (_, _, E::Close) => (P::Finished, vec![]),
-
-            tup => bail!("invalid transition: {tup:?}"),
         })
     }
 }
 
-pub type RoundFsm = Contextual<RoundPhase, RoundContext>;
+pub type RoundFsm = Contextual<RoundState, RoundContext>;
 
-pub fn map_event(msg: ShardedGossipWire) -> Option<RoundAction> {
+pub fn map_event(msg: ShardedGossipWire) -> Option<RoundMsg> {
     match msg {
-        ShardedGossipWire::Initiate(initiate) => Some(RoundAction::Initiate),
-        ShardedGossipWire::Accept(accept) => Some(RoundAction::Accept),
-        ShardedGossipWire::Agents(agents) => Some(RoundAction::AgentDiff),
-        ShardedGossipWire::MissingAgents(missing_agents) => Some(RoundAction::Agents),
-        ShardedGossipWire::OpBloom(op_bloom) => Some(RoundAction::OpDiff),
-        ShardedGossipWire::OpRegions(op_regions) => Some(RoundAction::OpDiff),
-        ShardedGossipWire::MissingOpHashes(missing_op_hashes) => Some(RoundAction::Ops),
+        ShardedGossipWire::Initiate(initiate) => Some(RoundMsg::Initiate),
+        ShardedGossipWire::Accept(accept) => Some(RoundMsg::Accept),
+        ShardedGossipWire::Agents(agents) => Some(RoundMsg::AgentDiff),
+        ShardedGossipWire::MissingAgents(missing_agents) => Some(RoundMsg::Agents),
+        ShardedGossipWire::OpBloom(op_bloom) => Some(RoundMsg::OpDiff),
+        ShardedGossipWire::OpRegions(op_regions) => Some(RoundMsg::OpDiff),
+        ShardedGossipWire::MissingOpHashes(missing_op_hashes) => Some(RoundMsg::Ops),
         ShardedGossipWire::OpBatchReceived(op_batch_received) => None,
 
         ShardedGossipWire::Error(_)
         | ShardedGossipWire::Busy(_)
         | ShardedGossipWire::NoAgents(_)
-        | ShardedGossipWire::AlreadyInProgress(_) => Some(RoundAction::Close),
+        | ShardedGossipWire::AlreadyInProgress(_) => Some(RoundMsg::Close),
     }
 }
 
-pub fn map_state(state: RoundState) -> Option<RoundPhase> {
+pub fn map_state(state: crate::gossip::sharded_gossip::RoundState) -> Option<RoundState> {
     todo!()
 }
 

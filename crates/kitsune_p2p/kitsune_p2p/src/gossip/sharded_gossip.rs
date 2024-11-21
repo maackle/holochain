@@ -3,6 +3,7 @@
 #![warn(missing_docs)]
 
 use crate::agent_store::AgentInfoSigned;
+use crate::gossip::model::peer_model::NodeAction;
 use crate::gossip::{decode_bloom_filter, encode_bloom_filter};
 use crate::types::event::*;
 use crate::types::gossip::*;
@@ -39,6 +40,7 @@ use self::store::AgentInfoSession;
 use crate::metrics::MetricsSync;
 
 use super::model::peer_model::PeerProjection;
+use super::model::round_model::RoundAction;
 use super::{HowToConnect, MetaOpKey};
 
 pub use bandwidth::BandwidthThrottles;
@@ -187,9 +189,8 @@ impl ShardedGossip {
                 while let Ok((node, event)) = polestar_receiver.recv() {
                     dbg!(&model);
                     let id = projection.id(node.clone());
-                    let action = projection
-                        .map_event((id, event))
-                        .expect("POLESTAR event mapping failed");
+
+                    let action = NodeAction::from_round_action(id, event);
                     dbg!(id, &action);
                     let (next, _fx) = model
                         .transition(action)
@@ -514,7 +515,7 @@ pub struct ShardedGossipLocal {
 }
 
 #[cfg(feature = "fuzzing")]
-pub(crate) type PolestarSender = Option<std::sync::mpsc::Sender<(NodeCert, ShardedGossipWire)>>;
+pub(crate) type PolestarSender = Option<std::sync::mpsc::Sender<(NodeCert, RoundAction)>>;
 #[cfg(not(feature = "fuzzing"))]
 pub(crate) type PolestarSender = Option<()>;
 
@@ -975,8 +976,15 @@ impl ShardedGossipLocal {
             ShardedGossipWire::Agents(Agents { filter }) => {
                 if let Some(state) = self.get_state(&peer_cert)? {
                     let filter = decode_bloom_filter(&filter);
-                    self.incoming_agents(state, filter, agent_info_session)
-                        .await?
+                    let out = self
+                        .incoming_agents(state, filter, agent_info_session)
+                        .await?;
+                    if out.is_empty() {
+                        self.polestar_sender
+                            .as_ref()
+                            .map(|tx| tx.send((cert.clone(), RoundAction::NoDiff)));
+                    }
+                    out
                 } else {
                     Vec::with_capacity(0)
                 }
@@ -1135,9 +1143,10 @@ impl ShardedGossipLocal {
             }
         };
 
-        #[cfg(feature = "fuzzing")]
         if let Some(tx) = self.polestar_sender.as_ref() {
-            tx.send((cert, event)).unwrap();
+            if let Some(msg) = super::model::round_model::map_event(event) {
+                tx.send((cert, msg.into())).unwrap();
+            }
         }
 
         s.in_scope(|| {
