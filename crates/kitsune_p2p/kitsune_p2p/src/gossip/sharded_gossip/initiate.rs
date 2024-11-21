@@ -69,8 +69,8 @@ impl ShardedGossipLocal {
                 Ok(())
             })?;
             self.polestar_sender
-                .as_ref()
-                .map(|tx| tx.send(ShardedGossipEvent::SetInitiate(tgt)));
+                .handle(ShardedGossipEvent::SetInitiate(tgt))
+                .unwrap();
             Some((cert, HowToConnect::Url(url.to_string()), gossip))
         } else {
             None
@@ -123,8 +123,8 @@ impl ShardedGossipLocal {
                     Ok(())
                 })?;
                 self.polestar_sender
-                    .as_ref()
-                    .map(|tx| tx.send(ShardedGossipEvent::TieBreakLoser(peer_cert.clone())));
+                    .handle(ShardedGossipEvent::TieBreakLoser(peer_cert.clone()))
+                    .unwrap();
             }
         }
 

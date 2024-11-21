@@ -163,8 +163,6 @@ impl ShardedGossip {
             Default::default()
         };
 
-        dbg!(&local_cert);
-
         #[cfg(not(test))]
         let state = Default::default();
 
@@ -183,7 +181,9 @@ impl ShardedGossip {
                 closing: closing.clone(),
                 fetch_pool,
                 // polestar_sender: None,
-                polestar_sender: Some(polestar_sender),
+                polestar_sender: Arc::new(polestar::event_handler::EventSender::new(
+                    polestar_sender,
+                )),
             };
 
             let mut model = PEER_PROJECTION
@@ -212,8 +212,10 @@ impl ShardedGossip {
                         Err(error) => {
                             eprintln!();
                             eprintln!();
-                            eprintln!("POLESTAR transition failure");
-                            eprintln!("===========================");
+                            eprintln!(
+                                "POLESTAR transition failure for {id:?}, local_cert={local_cert:?}"
+                            );
+                            eprintln!("================================================================================");
                             eprintln!();
                             eprintln!("Cert: {:?}", local_cert);
                             eprintln!("Id: {:?}", id);
@@ -224,15 +226,20 @@ impl ShardedGossip {
                             eprintln!();
                             eprintln!("Error: {:?}", error);
                             eprintln!();
+                            eprintln!("================================================================================");
 
                             closing.store(true, std::sync::atomic::Ordering::SeqCst);
 
-                            panic!("POLESTAR model failed to transition. See output for details. Error: {error:?}");
+                            break;
                         }
                     }
 
                     eprintln!(" - model: {model:?}");
                 }
+
+                panic!(
+                    "POLESTAR model failed to transition for {id:?}, local_cert={local_cert:?}. See output for details."
+                );
             });
 
             gossip
@@ -547,7 +554,7 @@ pub struct ShardedGossipLocal {
     pub inner: Share<ShardedGossipLocalState>,
     pub closing: Arc<AtomicBool>,
     pub fetch_pool: FetchPool,
-    pub polestar_sender: PolestarSender,
+    pub polestar_sender: Arc<dyn polestar::EventHandler<ShardedGossipEvent, anyhow::Error>>,
 }
 
 #[derive(Debug, derive_more::From)]
@@ -1028,8 +1035,8 @@ impl ShardedGossipLocal {
                         .await?;
                     if !out.is_empty() {
                         self.polestar_sender
-                            .as_ref()
-                            .map(|tx| tx.send(ShardedGossipEvent::MustSend(cert.clone())));
+                            .handle(ShardedGossipEvent::MustSend(cert.clone()))
+                            .unwrap();
                     }
                     out
                 } else {
@@ -1085,8 +1092,8 @@ impl ShardedGossipLocal {
                     if let ShardedGossipWire::MissingOpHashes(MissingOpHashes { ops, .. }) = &msg {
                         if !ops.is_empty() {
                             self.polestar_sender
-                                .as_ref()
-                                .map(|tx| tx.send(ShardedGossipEvent::MustSend(cert.clone())));
+                                .handle(ShardedGossipEvent::MustSend(cert.clone()))
+                                .unwrap();
                         }
                     }
                     vec![msg]
@@ -1203,9 +1210,7 @@ impl ShardedGossipLocal {
             }
         };
 
-        if let Some(tx) = self.polestar_sender.as_ref() {
-            tx.send(event).unwrap();
-        }
+        self.polestar_sender.handle(event).unwrap();
 
         s.in_scope(|| {
             let ops_s = r

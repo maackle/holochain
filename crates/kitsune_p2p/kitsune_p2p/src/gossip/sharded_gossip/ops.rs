@@ -98,8 +98,8 @@ impl ShardedGossipLocal {
 
         if !missing_hashes.is_empty() {
             self.polestar_sender
-                .as_ref()
-                .map(|tx| tx.send(ShardedGossipEvent::MustSend(from_cert)));
+                .handle(ShardedGossipEvent::MustSend(from_cert))
+                .unwrap();
         }
 
         self.batch_missing_ops_from_bloom(state, missing_hashes, queue_id)
