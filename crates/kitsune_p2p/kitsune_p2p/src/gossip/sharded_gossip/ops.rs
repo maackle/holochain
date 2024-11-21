@@ -71,7 +71,7 @@ impl ShardedGossipLocal {
         mut remote_bloom: TimedBloomFilter,
         mut queue_id: Option<usize>,
         from_cert: NodeCert,
-    ) -> KitsuneResult<Vec<ShardedGossipWire>> {
+    ) -> KitsuneResult<ShardedGossipWire> {
         // Check which ops are missing.
         let missing_hashes = self
             .check_op_bloom((*state.common_arc_set()).clone(), &remote_bloom)
@@ -95,12 +95,6 @@ impl ShardedGossipLocal {
                 data
             }
         };
-
-        if !missing_hashes.is_empty() {
-            self.polestar_sender
-                .handle(ShardedGossipEvent::MustSend(from_cert))
-                .unwrap();
-        }
 
         self.batch_missing_ops_from_bloom(state, missing_hashes, queue_id)
             .await
@@ -193,9 +187,9 @@ impl ShardedGossipLocal {
         &self,
         state: RoundState,
         cert: NodeCert,
-    ) -> KitsuneResult<Vec<ShardedGossipWire>> {
-        match self.gossip_type {
-            GossipType::Historical => Ok(vec![self.process_next_region_batch(state).await?]),
+    ) -> KitsuneResult<ShardedGossipWire> {
+        let g = match self.gossip_type {
+            GossipType::Historical => self.process_next_region_batch(state).await?,
             GossipType::Recent => {
                 // Pop the next queued batch.
                 let next_batch = state
@@ -207,22 +201,24 @@ impl ShardedGossipLocal {
                     // The next batch is hashes, batch them into ops using the queue id.
                     Some((queue_id, QueuedOps::Hashes(missing_hashes))) => {
                         self.batch_missing_ops_from_bloom(state, missing_hashes, Some(queue_id))
-                            .await
+                            .await?
                     }
                     // The next batch is a bloom so the hashes need to be fetched before
                     // fetching the hashes.
                     Some((queue_id, QueuedOps::Bloom(remote_bloom))) => {
                         self.incoming_op_bloom(state, remote_bloom, Some(queue_id), cert)
-                            .await
+                            .await?
                     }
                     // Nothing is queued so this node is done.
-                    None => Ok(vec![ShardedGossipWire::missing_op_hashes(
+                    None => ShardedGossipWire::missing_op_hashes(
                         Vec::with_capacity(0),
                         MissingOpsStatus::AllComplete as u8,
-                    )]),
+                    ),
                 }
             }
-        }
+        };
+        assert!(matches!(g, ShardedGossipWire::MissingOpHashes(_)));
+        Ok(g)
     }
 
     /// Fetch missing ops into the appropriate size chunks of
@@ -232,9 +228,8 @@ impl ShardedGossipLocal {
         state: RoundState,
         mut missing_hashes: Vec<Arc<KitsuneOpHash>>,
         mut queue_id: Option<usize>,
-    ) -> KitsuneResult<Vec<ShardedGossipWire>> {
+    ) -> KitsuneResult<ShardedGossipWire> {
         let num_missing = missing_hashes.len();
-        let mut gossip = Vec::new();
 
         // Fetch the missing ops if there is any.
         let missing_op_hashes = if missing_hashes.is_empty() {
@@ -292,7 +287,7 @@ impl ShardedGossipLocal {
         };
 
         // Chunk the ops into multiple gossip messages if needed.
-        into_chunks(&mut gossip, missing_hashes, complete);
+        let gossip = into_chunks(missing_hashes, complete);
 
         Ok(gossip)
     }
@@ -322,9 +317,11 @@ impl ShardedGossipLocal {
 
 /// Separate gossip into chunks to keep messages under the max size.
 // pair(maackle, freesig): can use this for chunking, see above fn for use
-fn into_chunks(gossip: &mut Vec<ShardedGossipWire>, hashes: Vec<KOpHash>, complete: u8) {
+fn into_chunks(hashes: Vec<KOpHash>, complete: u8) -> ShardedGossipWire {
     let mut chunk = Vec::with_capacity(hashes.len());
     let mut size = 0;
+
+    let mut gossip = vec![];
 
     // If there are no ops missing we send back an empty final chunk
     // so the other side knows we're done.
@@ -358,6 +355,9 @@ fn into_chunks(gossip: &mut Vec<ShardedGossipWire>, hashes: Vec<KOpHash>, comple
     if !chunk.is_empty() {
         gossip.push(ShardedGossipWire::missing_op_hashes(chunk, complete));
     }
+
+    assert_eq!(gossip.len(), 1);
+    return gossip.pop().unwrap();
 }
 
 impl OpsBatchQueue {

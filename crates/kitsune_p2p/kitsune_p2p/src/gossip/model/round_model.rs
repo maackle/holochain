@@ -117,11 +117,10 @@ impl Machine for RoundState {
                     }
                     (T::Recent, M::OpDiff, P::AgentsReceived(false)) => (P::Finished, vec![]),
 
-                    (T::Historical, M::OpDiff, P::Started(true)) => {
-                        (P::OpDiffReceived, vec![M::Ops])
-                    }
+                    // TODO: this was Started(true), but it may be the case that in historical gossip we always send ops?
+                    (T::Historical, M::OpDiff, P::Started(_)) => (P::OpDiffReceived, vec![M::Ops]),
+                    // (T::Historical, M::OpDiff, P::Started(false)) => (P::Finished, vec![]),
                     (T::Recent, M::Ops, P::OpDiffReceived) => (P::Finished, vec![]),
-                    (T::Historical, M::OpDiff, P::Started(false)) => (P::Finished, vec![]),
                     (T::Historical, M::Ops, P::OpDiffReceived) => (P::Finished, vec![]),
 
                     (_, _, P::Finished) => bail!("terminal"),

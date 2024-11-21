@@ -238,7 +238,7 @@ impl ShardedGossip {
                 }
 
                 panic!(
-                    "POLESTAR model failed to transition for {id:?}, local_cert={local_cert:?}. See output for details."
+                    "polestar model failed to transition for {id:?}, local_cert={local_cert:?}. See output for details."
                 );
             });
 
@@ -1066,8 +1066,13 @@ impl ShardedGossipLocal {
                                 bloom: None,
                                 time: time_window,
                             };
-                            self.incoming_op_bloom(state, filter, None, cert.clone())
-                                .await?
+                            self.polestar_sender
+                                .handle(ShardedGossipEvent::MustSend(cert.clone()))
+                                .unwrap();
+                            vec![
+                                self.incoming_op_bloom(state, filter, None, cert.clone())
+                                    .await?,
+                            ]
                         }
                         EncodedTimedBloomFilter::HaveHashes {
                             filter,
@@ -1077,8 +1082,13 @@ impl ShardedGossipLocal {
                                 bloom: Some(decode_bloom_filter(&filter)),
                                 time: time_window,
                             };
-                            self.incoming_op_bloom(state, filter, None, cert.clone())
-                                .await?
+                            self.polestar_sender
+                                .handle(ShardedGossipEvent::MustSend(cert.clone()))
+                                .unwrap();
+                            vec![
+                                self.incoming_op_bloom(state, filter, None, cert.clone())
+                                    .await?,
+                            ]
                         }
                     },
                     None => Vec::with_capacity(0),
@@ -1184,8 +1194,12 @@ impl ShardedGossipLocal {
                         .await?;
                     if state.is_finished() {
                         self.remove_state(&peer_cert, false)?;
+                    } else {
+                        self.polestar_sender
+                            .handle(ShardedGossipEvent::MustSend(cert.clone()))
+                            .unwrap();
                     }
-                    r
+                    vec![r]
                 }
                 None => Vec::with_capacity(0),
             },
