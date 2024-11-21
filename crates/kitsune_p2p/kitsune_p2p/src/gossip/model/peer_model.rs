@@ -5,7 +5,8 @@ use crate::{
     gossip::{
         model::round_model::RoundState,
         sharded_gossip::{
-            store::AgentInfoSession, Initiate, ShardedGossipLocal, ShardedGossipWire,
+            store::AgentInfoSession, Initiate, ShardedGossipEvent, ShardedGossipLocal,
+            ShardedGossipWire,
         },
     },
 };
@@ -78,7 +79,9 @@ impl Machine for PeerModel {
                     vec![]
                     // bail!("already a round for {from:?}");
                 } else if self.initiate_tgt.as_ref().map(|t| &t.cert) == Some(&from) {
-                    bail!("invalid Initiate from node that is initiate_tgt");
+                    tracing::error!("invalid Initiate from node that is initiate_tgt");
+                    vec![]
+                    // bail!("invalid Initiate from node that is initiate_tgt");
                 } else {
                     self.rounds.insert(
                         from.clone(),
@@ -178,7 +181,7 @@ pub enum NodeAction {
         from: NodeId,
         msg: RoundMsg,
     },
-    NoDiff(NodeId),
+    MustSend(NodeId),
 }
 
 impl NodeAction {
@@ -187,14 +190,14 @@ impl NodeAction {
             NodeAction::Incoming { from, .. } => *from,
             NodeAction::Timeout(node) => *node,
             NodeAction::SetInitiate(node, _) => *node,
-            NodeAction::NoDiff(node) => *node,
+            NodeAction::MustSend(node) => *node,
         }
     }
 
     pub fn into_round_action(self) -> Option<RoundAction> {
         match self {
             NodeAction::Incoming { msg, .. } => Some(RoundAction::Msg(msg)),
-            NodeAction::NoDiff(from) => Some(RoundAction::NoDiff),
+            NodeAction::MustSend(from) => Some(RoundAction::MustSend),
             _ => None,
         }
     }
@@ -202,7 +205,7 @@ impl NodeAction {
     pub fn from_round_action(from: NodeId, action: RoundAction) -> Self {
         match action {
             RoundAction::Msg(msg) => NodeAction::Incoming { from, msg },
-            RoundAction::NoDiff => NodeAction::NoDiff(from),
+            RoundAction::MustSend => NodeAction::MustSend(from),
         }
     }
 }
@@ -221,15 +224,42 @@ impl PeerProjection {
 impl Projection for PeerProjection {
     type System = ShardedGossipLocal;
     type Model = PeerModel;
-    type Event = (NodeId, ShardedGossipWire);
+    type Event = ShardedGossipEvent;
 
-    fn apply(&self, system: &mut Self::System, (node, msg): Self::Event) {
+    fn apply(&self, system: &mut Self::System, _: Self::Event) {
         unimplemented!("application not implemented")
     }
 
-    fn map_event(&mut self, (from, msg): Self::Event) -> Option<NodeAction> {
-        unimplemented!("actually, this needs to be reworked")
-        // super::round_model::map_event(msg).map(|msg| NodeAction::Incoming { from, msg })
+    fn map_event(&mut self, event: Self::Event) -> Option<NodeAction> {
+        match event {
+            ShardedGossipEvent::Msg(from, msg) => match msg {
+                ShardedGossipWire::Initiate(initiate) => Some(RoundMsg::Initiate),
+                ShardedGossipWire::Accept(accept) => Some(RoundMsg::Accept),
+                ShardedGossipWire::Agents(agents) => Some(RoundMsg::AgentDiff),
+                ShardedGossipWire::MissingAgents(missing_agents) => Some(RoundMsg::Agents),
+                ShardedGossipWire::OpBloom(op_bloom) => Some(RoundMsg::OpDiff),
+                ShardedGossipWire::OpRegions(op_regions) => Some(RoundMsg::OpDiff),
+                ShardedGossipWire::MissingOpHashes(missing_op_hashes) => Some(RoundMsg::Ops),
+                ShardedGossipWire::OpBatchReceived(op_batch_received) => None,
+
+                ShardedGossipWire::Error(_)
+                | ShardedGossipWire::Busy(_)
+                | ShardedGossipWire::NoAgents(_)
+                | ShardedGossipWire::AlreadyInProgress(_) => Some(RoundMsg::Close),
+            }
+            .map(|msg| NodeAction::Incoming {
+                from: self.id(from),
+                msg,
+            }),
+
+            ShardedGossipEvent::SetInitiate(tgt) => Some(NodeAction::SetInitiate(
+                self.id(tgt.cert),
+                tgt.tie_break > (u32::MAX / 2),
+            )),
+            ShardedGossipEvent::MustSend(node_cert) => {
+                Some(NodeAction::MustSend(self.id(node_cert)))
+            }
+        }
     }
 
     fn map_state(&mut self, system: &Self::System) -> Option<PeerModel> {

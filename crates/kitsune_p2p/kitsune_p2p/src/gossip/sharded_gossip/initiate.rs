@@ -65,9 +65,12 @@ impl ShardedGossipLocal {
             };
 
             self.inner.share_mut(|inner, _| {
-                inner.initiate_tgt = Some(tgt);
+                inner.initiate_tgt = Some(tgt.clone());
                 Ok(())
             })?;
+            self.polestar_sender
+                .as_ref()
+                .map(|tx| tx.send(ShardedGossipEvent::SetInitiate(tgt)));
             Some((cert, HowToConnect::Url(url.to_string()), gossip))
         } else {
             None

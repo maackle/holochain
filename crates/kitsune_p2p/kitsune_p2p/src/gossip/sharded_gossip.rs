@@ -188,11 +188,11 @@ impl ShardedGossip {
 
             tokio::spawn(async move {
                 use polestar::Machine;
-                while let Ok((node, event)) = polestar_receiver.recv() {
+                while let Ok(event) = polestar_receiver.recv() {
                     // dbg!(&model);
-                    let id = projection.id(node.clone());
-
-                    let action = NodeAction::from_round_action(id, event);
+                    let action = projection
+                        .map_event(event)
+                        .expect("POLESTAR event mapping failed");
                     // dbg!(id, &action);
                     match model.clone().transition(action.clone()) {
                         Ok((next, _fx)) => model = next,
@@ -528,8 +528,18 @@ pub struct ShardedGossipLocal {
     pub polestar_sender: PolestarSender,
 }
 
+#[derive(Debug, derive_more::From)]
+#[allow(missing_docs)]
+pub enum ShardedGossipEvent {
+    #[from]
+    SetInitiate(ShardedGossipTarget),
+    #[from]
+    Msg(NodeCert, ShardedGossipWire),
+    MustSend(NodeCert),
+}
+
 #[cfg(feature = "fuzzing")]
-pub(crate) type PolestarSender = Option<std::sync::mpsc::Sender<(NodeCert, RoundAction)>>;
+pub(crate) type PolestarSender = Option<std::sync::mpsc::Sender<ShardedGossipEvent>>;
 #[cfg(not(feature = "fuzzing"))]
 pub(crate) type PolestarSender = Option<()>;
 
@@ -542,7 +552,7 @@ type Outgoing = (NodeCert, HowToConnect, ShardedGossipWire);
 pub type NodeId = NodeCert;
 
 /// Info associated with an outgoing gossip target
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ShardedGossipTarget {
     pub(crate) remote_agent_list: Vec<AgentInfoSigned>,
     pub(crate) cert: NodeCert,
@@ -968,7 +978,7 @@ impl ShardedGossipLocal {
         let cert = peer_cert.clone();
 
         #[cfg(feature = "fuzzing")]
-        let event = msg.clone();
+        let event = ShardedGossipEvent::Msg(cert.clone(), msg.clone());
 
         // If we don't have the state for a message then the other node will need to timeout.
         let r = match msg {
@@ -993,10 +1003,10 @@ impl ShardedGossipLocal {
                     let out = self
                         .incoming_agents(state, filter, agent_info_session)
                         .await?;
-                    if out.is_empty() {
+                    if !out.is_empty() {
                         self.polestar_sender
                             .as_ref()
-                            .map(|tx| tx.send((cert.clone(), RoundAction::NoDiff)));
+                            .map(|tx| tx.send(ShardedGossipEvent::MustSend(cert.clone())));
                     }
                     out
                 } else {
@@ -1026,7 +1036,8 @@ impl ShardedGossipLocal {
                                 bloom: None,
                                 time: time_window,
                             };
-                            self.incoming_op_bloom(state, filter, None).await?
+                            self.incoming_op_bloom(state, filter, None, cert.clone())
+                                .await?
                         }
                         EncodedTimedBloomFilter::HaveHashes {
                             filter,
@@ -1036,7 +1047,8 @@ impl ShardedGossipLocal {
                                 bloom: Some(decode_bloom_filter(&filter)),
                                 time: time_window,
                             };
-                            self.incoming_op_bloom(state, filter, None).await?
+                            self.incoming_op_bloom(state, filter, None, cert.clone())
+                                .await?
                         }
                     },
                     None => Vec::with_capacity(0),
@@ -1044,8 +1056,17 @@ impl ShardedGossipLocal {
             }
             ShardedGossipWire::OpRegions(OpRegions { region_set }) => {
                 if let Some(state) = self.incoming_op_blooms_finished(&peer_cert)? {
-                    self.queue_incoming_regions(&peer_cert, state, region_set)
-                        .await?
+                    let msg = self
+                        .queue_incoming_regions(&peer_cert, state, region_set)
+                        .await?;
+                    if let ShardedGossipWire::MissingOpHashes(MissingOpHashes { ops, .. }) = &msg {
+                        if !ops.is_empty() {
+                            self.polestar_sender
+                                .as_ref()
+                                .map(|tx| tx.send(ShardedGossipEvent::MustSend(cert.clone())));
+                        }
+                    }
+                    vec![msg]
                 } else {
                     vec![]
                 }
@@ -1128,7 +1149,9 @@ impl ShardedGossipLocal {
                 Some(state) => {
                     // The last ops batch has been received by the
                     // remote node so now send the next batch.
-                    let r = self.next_missing_ops_batch(state.clone()).await?;
+                    let r = self
+                        .next_missing_ops_batch(state.clone(), cert.clone())
+                        .await?;
                     if state.is_finished() {
                         self.remove_state(&peer_cert, false)?;
                     }
@@ -1158,9 +1181,7 @@ impl ShardedGossipLocal {
         };
 
         if let Some(tx) = self.polestar_sender.as_ref() {
-            if let Some(msg) = super::model::round_model::map_event(event) {
-                tx.send((cert, msg.into())).unwrap();
-            }
+            tx.send(event).unwrap();
         }
 
         s.in_scope(|| {

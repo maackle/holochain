@@ -23,14 +23,14 @@ pub enum RoundPhase {
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
 pub struct RoundState {
     pub phase: RoundPhase,
-    pub no_diff: bool,
+    pub must_send: bool,
 }
 
 impl RoundState {
     pub fn new(phase: RoundPhase) -> Self {
         Self {
             phase,
-            no_diff: false,
+            must_send: false,
         }
     }
 }
@@ -44,7 +44,7 @@ pub enum RoundAction {
     /// Special model-specific action indicating that no diff was found,
     /// letting us bump to the next phase.
     /// (this is kind of like an epsilon transition, in DFA terms.)
-    NoDiff,
+    MustSend,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, exhaustive::Exhaustive)]
@@ -76,29 +76,29 @@ impl Machine for RoundState {
 
         Ok(match action {
             RoundAction::Msg(msg) => {
-                let (phase, fx) = match (*ctx, msg, self.phase, self.no_diff) {
-                    (T::Recent, M::AgentDiff, P::Started(_), false) => {
+                let (phase, fx) = match (*ctx, msg, self.phase, self.must_send) {
+                    (T::Recent, M::AgentDiff, P::Started(_), true) => {
                         (P::AgentDiffReceived, vec![M::Agents])
                     }
-                    (T::Recent, M::AgentDiff, P::Started(_), true) => {
+                    (T::Recent, M::AgentDiff, P::Started(_), false) => {
                         (P::AgentsReceived, vec![M::OpDiff])
                     }
 
-                    (T::Recent, M::Agents, P::AgentDiffReceived, false) => {
+                    (T::Recent, M::Agents, P::AgentDiffReceived, true) => {
                         (P::AgentsReceived, vec![M::OpDiff])
                     }
 
-                    (T::Recent, M::OpDiff, P::AgentsReceived, false) => {
+                    (T::Recent, M::OpDiff, P::AgentsReceived, true) => {
                         (P::OpDiffReceived, vec![M::Ops])
                     }
-                    (T::Recent, M::OpDiff, P::AgentsReceived, true) => (P::Finished, vec![]),
+                    (T::Recent, M::OpDiff, P::AgentsReceived, false) => (P::Finished, vec![]),
 
-                    (T::Historical, M::OpDiff, P::Started(_), false) => {
+                    (T::Historical, M::OpDiff, P::Started(_), true) => {
                         (P::OpDiffReceived, vec![M::Ops])
                     }
-                    (T::Historical, M::OpDiff, P::Started(_), true) => (P::Finished, vec![]),
+                    (T::Historical, M::OpDiff, P::Started(_), false) => (P::Finished, vec![]),
 
-                    (_, M::Ops, P::OpDiffReceived, false) => (P::Finished, vec![]),
+                    (_, M::Ops, P::OpDiffReceived, true) => (P::Finished, vec![]),
                     (_, _, P::Finished, _) => bail!("terminal"),
 
                     // This might not be right
@@ -109,16 +109,16 @@ impl Machine for RoundState {
                 (
                     Self {
                         phase,
-                        no_diff: false,
+                        must_send: false,
                     },
                     fx,
                 )
             }
-            RoundAction::NoDiff => {
-                if self.no_diff {
-                    bail!("no_diff already set");
+            RoundAction::MustSend => {
+                if self.must_send {
+                    bail!("must_send already set");
                 } else {
-                    self.no_diff = true;
+                    self.must_send = true;
                 }
                 (self, vec![])
             }

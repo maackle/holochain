@@ -70,6 +70,7 @@ impl ShardedGossipLocal {
         state: RoundState,
         mut remote_bloom: TimedBloomFilter,
         mut queue_id: Option<usize>,
+        from_cert: NodeCert,
     ) -> KitsuneResult<Vec<ShardedGossipWire>> {
         // Check which ops are missing.
         let missing_hashes = self
@@ -95,6 +96,12 @@ impl ShardedGossipLocal {
             }
         };
 
+        if !missing_hashes.is_empty() {
+            self.polestar_sender
+                .as_ref()
+                .map(|tx| tx.send(ShardedGossipEvent::MustSend(from_cert)));
+        }
+
         self.batch_missing_ops_from_bloom(state, missing_hashes, queue_id)
             .await
     }
@@ -104,7 +111,7 @@ impl ShardedGossipLocal {
         peer_cert: &NodeCert,
         state: RoundState,
         region_set: RegionSetLtcs,
-    ) -> KitsuneResult<Vec<ShardedGossipWire>> {
+    ) -> KitsuneResult<ShardedGossipWire> {
         if let Some(sent) = state.region_set_sent.as_ref().map(|r| (**r).clone()) {
             // because of the order of arguments, the diff regions will contain the data
             // from *our* side, not our partner's.
@@ -152,7 +159,7 @@ impl ShardedGossipLocal {
     pub(super) async fn process_next_region_batch(
         &self,
         state: RoundState,
-    ) -> KitsuneResult<Vec<ShardedGossipWire>> {
+    ) -> KitsuneResult<ShardedGossipWire> {
         let (to_fetch, finished) = state.ops_batch_queue.share_mut(|queues, _| {
             let items = get_region_queue_batch(
                 &mut queues.region_queue,
@@ -178,19 +185,17 @@ impl ShardedGossipLocal {
         // TODO: make region set diffing more robust to different times (arc power differences are already handled)
 
         let finished_val = if finished { 2 } else { 1 };
-        Ok(vec![ShardedGossipWire::missing_op_hashes(
-            ops,
-            finished_val,
-        )])
+        Ok(ShardedGossipWire::missing_op_hashes(ops, finished_val))
     }
 
     /// Generate the next batch of missing ops.
     pub(super) async fn next_missing_ops_batch(
         &self,
         state: RoundState,
+        cert: NodeCert,
     ) -> KitsuneResult<Vec<ShardedGossipWire>> {
         match self.gossip_type {
-            GossipType::Historical => self.process_next_region_batch(state).await,
+            GossipType::Historical => Ok(vec![self.process_next_region_batch(state).await?]),
             GossipType::Recent => {
                 // Pop the next queued batch.
                 let next_batch = state
@@ -207,7 +212,7 @@ impl ShardedGossipLocal {
                     // The next batch is a bloom so the hashes need to be fetched before
                     // fetching the hashes.
                     Some((queue_id, QueuedOps::Bloom(remote_bloom))) => {
-                        self.incoming_op_bloom(state, remote_bloom, Some(queue_id))
+                        self.incoming_op_bloom(state, remote_bloom, Some(queue_id), cert)
                             .await
                     }
                     // Nothing is queued so this node is done.

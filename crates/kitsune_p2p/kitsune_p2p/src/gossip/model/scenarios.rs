@@ -5,13 +5,13 @@ use kitsune_p2p_bin_data::NodeCert;
 use kitsune_p2p_types::GossipType;
 use peer_model::*;
 use polestar::prelude::*;
-use round_model::RoundAction;
+use round_model::{RoundAction, RoundMsg};
 
 use super::*;
 
 #[test]
 fn scenario1() -> anyhow::Result<()> {
-    use polestar::fsm::checked::Predicate as P;
+    use polestar::dfa::checked::Predicate as P;
     use polestar::prelude::*;
     let id = NodeId::try_from(0).unwrap();
 
@@ -30,23 +30,23 @@ fn scenario1() -> anyhow::Result<()> {
             .0;
         assert_eq!(model.initiate_tgt.as_ref().unwrap().cert, id);
         model = model
-            .transition((id.clone(), RoundAction::Accept).into())
+            .transition((id.clone(), RoundMsg::Accept).into())
             .unwrap()
             .0;
         model = model
-            .transition((id.clone(), RoundAction::AgentDiff).into())
+            .transition((id.clone(), RoundMsg::AgentDiff).into())
             .unwrap()
             .0;
         model = model
-            .transition((id.clone(), RoundAction::Agents).into())
+            .transition((id.clone(), RoundMsg::Agents).into())
             .unwrap()
             .0;
         model = model
-            .transition((id.clone(), RoundAction::OpDiff).into())
+            .transition((id.clone(), RoundMsg::OpDiff).into())
             .unwrap()
             .0;
         model = model
-            .transition((id.clone(), RoundAction::Ops).into())
+            .transition((id.clone(), RoundMsg::Ops).into())
             .unwrap()
             .0;
         assert!(model.initiate_tgt.is_none());
