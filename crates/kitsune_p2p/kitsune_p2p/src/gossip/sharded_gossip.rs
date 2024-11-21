@@ -173,13 +173,14 @@ impl ShardedGossip {
         #[cfg(feature = "fuzzing")]
         let gossip = {
             let (polestar_sender, polestar_receiver) = std::sync::mpsc::channel();
+            let closing = Arc::new(AtomicBool::new(false));
             let gossip = ShardedGossipLocal {
                 tuning_params,
                 space,
                 host_api,
                 inner: Share::new(ShardedGossipLocalState::new(metrics)),
                 gossip_type,
-                closing: AtomicBool::new(false).into(),
+                closing: closing.clone(),
                 fetch_pool,
                 // polestar_sender: None,
                 polestar_sender: Some(polestar_sender),
@@ -223,6 +224,8 @@ impl ShardedGossip {
                             eprintln!();
                             eprintln!("Error: {:?}", error);
                             eprintln!();
+
+                            closing.store(true, std::sync::atomic::Ordering::SeqCst);
 
                             panic!("POLESTAR model failed to transition. See output for details. Error: {error:?}");
                         }

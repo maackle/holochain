@@ -8,6 +8,7 @@ mod conductor_services;
 mod countersigning;
 mod dht_arc;
 mod dna_properties;
+mod forever_gossip;
 mod graft_records_onto_source_chain;
 mod hc_stress_test;
 mod init;
