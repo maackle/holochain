@@ -86,7 +86,7 @@ itertools = "0.12"
 # workspace = true
 
 
-[workspace]
+# [workspace]
 
 
 [features]

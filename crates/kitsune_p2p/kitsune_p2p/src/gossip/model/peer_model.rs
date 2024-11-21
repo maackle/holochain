@@ -5,18 +5,24 @@ use crate::{
     gossip::sharded_gossip::{
         store::AgentInfoSession, Initiate, ShardedGossipLocal, ShardedGossipWire,
     },
-    NodeCert,
 };
 use anyhow::{anyhow, bail};
+use exhaustive::Exhaustive;
+use kitsune_p2p_bin_data::NodeCert;
 use kitsune_p2p_types::GossipType;
-use polestar::prelude::*;
+use polestar::{
+    id::{IdMap, UpTo},
+    prelude::*,
+};
 use proptest_derive::Arbitrary;
 
 use crate::gossip::model::round_model::{RoundAction, RoundFsm, RoundPhase};
 
+use super::{NodeId, PEERS};
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, derive_more::From)]
 pub struct PeerModel {
-    pub rounds: BTreeMap<NodeCert, RoundFsm>,
+    pub rounds: BTreeMap<NodeId, RoundFsm>,
     pub initiate_tgt: Option<Tgt>,
     pub gossip_type: GossipType,
 }
@@ -30,7 +36,7 @@ impl PeerModel {
         }
     }
 
-    fn finish_round(&mut self, peer: &NodeCert) {
+    fn finish_round(&mut self, peer: &NodeId) {
         if self.initiate_tgt.as_ref().map(|t| &t.cert) == Some(peer) {
             self.initiate_tgt = None;
         }
@@ -40,17 +46,17 @@ impl PeerModel {
 
 impl Machine for PeerModel {
     type Action = NodeAction;
-    type Fx = Vec<(NodeCert, RoundAction)>;
+    type Fx = Vec<(NodeId, RoundAction)>;
     type Error = anyhow::Error;
 
     #[allow(clippy::map_entry)]
     fn transition(mut self, action: Self::Action) -> MachineResult<Self> {
         let fx = match action {
-            NodeAction::SetInitiate(with_node) => {
+            NodeAction::SetInitiate(with_node, tie_break) => {
                 if self.initiate_tgt.is_none() {
                     self.initiate_tgt = Some(Tgt {
                         cert: with_node.clone(),
-                        tie_break: 0,
+                        tie_break,
                     });
                 }
                 vec![(with_node, RoundAction::Initiate)]
@@ -123,40 +129,51 @@ impl Machine for PeerModel {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, derive_more::From)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, Exhaustive, derive_more::From)]
 pub struct Tgt {
-    pub cert: NodeCert,
-    // TODO: handle tie breaker
-    pub tie_break: u32,
+    pub cert: NodeId,
+    /// In the SUT, the tie breaker is a random u32.
+    /// To minimize state space and to greatly increase the chance of collision,
+    /// we use a bool instead: true is greater than false.
+    pub tie_break: bool,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, derive_more::From)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, Exhaustive, derive_more::From)]
 pub enum NodeAction {
-    SetInitiate(NodeCert),
-    Timeout(NodeCert),
+    SetInitiate(NodeId, bool),
+    Timeout(NodeId),
     #[from]
     Incoming {
-        from: NodeCert,
+        from: NodeId,
         msg: RoundAction,
     },
 }
 
-pub struct PeerProjection;
+#[derive(Default)]
+pub struct PeerProjection {
+    ids: IdMap<PEERS, NodeCert>,
+}
+
+impl PeerProjection {
+    pub fn id(&mut self, cert: NodeCert) -> NodeId {
+        self.ids.lookup(cert).unwrap()
+    }
+}
 
 impl Projection for PeerProjection {
     type System = ShardedGossipLocal;
     type Model = PeerModel;
-    type Event = (NodeCert, ShardedGossipWire);
+    type Event = (NodeId, ShardedGossipWire);
 
     fn apply(&self, system: &mut Self::System, (node, msg): Self::Event) {
         unimplemented!("application not implemented")
     }
 
-    fn map_event(&self, (from, msg): Self::Event) -> Option<NodeAction> {
+    fn map_event(&mut self, (from, msg): Self::Event) -> Option<NodeAction> {
         super::round_model::map_event(msg).map(|msg| NodeAction::Incoming { from, msg })
     }
 
-    fn map_state(&self, system: &Self::System) -> Option<PeerModel> {
+    fn map_state(&mut self, system: &Self::System) -> Option<PeerModel> {
         let state = system
             .inner
             .share_mut(|s, _| {
@@ -166,18 +183,18 @@ impl Projection for PeerProjection {
                     .iter()
                     .map(|(k, mut v)| {
                         (
-                            k.clone(),
+                            self.ids.lookup(k.clone()).unwrap(),
                             super::round_model::map_state(v.clone())
                                 .unwrap()
                                 .context(system.gossip_type),
                         )
                     })
-                    .collect::<BTreeMap<NodeCert, RoundFsm>>()
+                    .collect::<BTreeMap<NodeId, RoundFsm>>()
                     .into();
 
                 let initiate_tgt = s.initiate_tgt.as_ref().map(|t| Tgt {
-                    cert: t.cert.clone(),
-                    tie_break: t.tie_break,
+                    cert: self.ids.lookup(t.cert.clone()).unwrap(),
+                    tie_break: t.tie_break > (u32::MAX / 2),
                 });
                 Ok(PeerModel {
                     rounds,
@@ -189,11 +206,11 @@ impl Projection for PeerProjection {
         Some(state)
     }
 
-    fn gen_event(&self, generator: &mut impl Generator, event: NodeAction) -> Self::Event {
+    fn gen_event(&mut self, generator: &mut impl Generator, event: NodeAction) -> Self::Event {
         unimplemented!("generation not implemented")
     }
 
-    fn gen_state(&self, generator: &mut impl Generator, state: PeerModel) -> Self::System {
+    fn gen_state(&mut self, generator: &mut impl Generator, state: PeerModel) -> Self::System {
         unimplemented!("generation not implemented")
     }
 }
@@ -206,59 +223,28 @@ mod tests {
     use crate::wire::Gossip;
 
     use super::*;
-    use polestar::diagram::{montecarlo::*, to_dot};
+    use polestar::diagram::{exhaustive::*, to_dot};
     use proptest::prelude::*;
     use proptest::*;
 
     // TODO: map this to an even simpler model with symmetry around the NodeCerts?
     // TODO: how to do symmetry?
     #[test]
-    #[ignore = "diagram"]
-    fn diagram_gossip_model() {
-        tracing::subscriber::set_global_default(tracing_subscriber::FmtSubscriber::new()).unwrap();
+    #[ignore = "diagram, and it's way too big to even make sense of"]
+    fn diagram_peer_model() {
+        tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::DEBUG)
+            .init();
 
         let config = DiagramConfig {
-            steps: 100,
-            walks: 10,
+            max_actions: None,
+            max_distance: None,
+            max_iters: Some(100000),
             ignore_loopbacks: true,
         };
 
-        struct GossipModelDiagrammer {
-            certs: Vec<NodeCert>,
-        }
-
-        impl GossipModelDiagrammer {
-            pub fn new() -> Self {
-                Self {
-                    certs: vec![
-                        NodeCert::from(Arc::new([1u8; 32])),
-                        NodeCert::from(Arc::new([2u8; 32])),
-                        NodeCert::from(Arc::new([3u8; 32])),
-                    ],
-                }
-            }
-        }
-
-        impl MonteCarloDiagramState<PeerModel> for GossipModelDiagrammer {
-            fn strategy(&self) -> BoxedStrategy<NodeAction> {
-                prop_oneof![
-                    sample::select(self.certs.clone()).prop_map(NodeAction::SetInitiate),
-                    (sample::select(self.certs.clone()), RoundAction::arbitrary())
-                        .prop_map(|(from, msg)| NodeAction::Incoming { from, msg })
-                ]
-                .boxed()
-            }
-        }
-
         let model = PeerModel::new(GossipType::Recent);
 
-        println!(
-            "{}",
-            to_dot(state_diagram(
-                model,
-                &mut GossipModelDiagrammer::new(),
-                &config
-            ))
-        );
+        println!("{}", to_dot(state_diagram(model, &config)));
     }
 }

@@ -147,6 +147,7 @@ impl ShardedGossip {
         bandwidth: Arc<BandwidthThrottle>,
         metrics: MetricsSync,
         fetch_pool: FetchPool,
+        local_cert: NodeCert,
         #[cfg(test)] enable_history: bool,
     ) -> Arc<Self> {
         #[cfg(test)]
@@ -155,6 +156,8 @@ impl ShardedGossip {
         } else {
             Default::default()
         };
+
+        dbg!(&local_cert);
 
         #[cfg(not(test))]
         let state = Default::default();
@@ -175,14 +178,16 @@ impl ShardedGossip {
                 polestar_sender: Some(polestar_sender),
             };
 
-            let mut model = PeerProjection
+            let mut projection = PeerProjection::default();
+            let mut model = projection
                 .map_state(&gossip)
                 .expect("POLESTAR model mapping failed");
             tokio::spawn(async move {
                 use polestar::Machine;
-                while let Ok(e) = polestar_receiver.recv() {
-                    let action = PeerProjection
-                        .map_event(e)
+                while let Ok((node, action)) = polestar_receiver.recv() {
+                    let id = projection.id(node.clone());
+                    let action = projection
+                        .map_event((id, action))
                         .expect("POLESTAR event mapping failed");
                     let (next, _fx) = model
                         .transition(action)
@@ -1465,6 +1470,7 @@ impl AsGossipModuleFactory for ShardedRecentGossipFactory {
         host: HostApiLegacy,
         metrics: MetricsSync,
         fetch_pool: FetchPool,
+        local_cert: NodeCert,
     ) -> GossipModule {
         GossipModule(ShardedGossip::new(
             config,
@@ -1475,6 +1481,7 @@ impl AsGossipModuleFactory for ShardedRecentGossipFactory {
             self.bandwidth.clone(),
             metrics,
             fetch_pool,
+            local_cert,
             #[cfg(test)]
             false,
         ))
@@ -1500,6 +1507,7 @@ impl AsGossipModuleFactory for ShardedHistoricalGossipFactory {
         host: HostApiLegacy,
         metrics: MetricsSync,
         fetch_pool: FetchPool,
+        local_cert: NodeCert,
     ) -> GossipModule {
         GossipModule(ShardedGossip::new(
             config,
@@ -1510,6 +1518,7 @@ impl AsGossipModuleFactory for ShardedHistoricalGossipFactory {
             self.bandwidth.clone(),
             metrics,
             fetch_pool,
+            local_cert,
             #[cfg(test)]
             false,
         ))

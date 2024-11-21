@@ -1484,6 +1484,9 @@ impl Space {
                     }
                 })
                 .map(|(module, factory)| {
+                    let url = local_url.lock().unwrap().clone();
+                    let purl = kitsune_p2p_proxy::ProxyUrl::from_full(&url.unwrap()).unwrap();
+                    let cert = NodeCert::from(purl.digest().0);
                     (
                         module,
                         factory.spawn_gossip_task(
@@ -1493,6 +1496,7 @@ impl Space {
                             host_api.clone(),
                             metrics.clone(),
                             fetch_pool.clone(),
+                            cert,
                         ),
                     )
                 })

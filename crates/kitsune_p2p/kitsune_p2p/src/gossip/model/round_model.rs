@@ -3,7 +3,6 @@ use std::sync::Arc;
 use crate::{
     dependencies::kitsune_p2p_types::{GossipType, KitsuneResult},
     gossip::sharded_gossip::{store::AgentInfoSession, RoundState, ShardedGossipWire},
-    NodeCert,
 };
 use anyhow::bail;
 use polestar::{fsm::Contextual, prelude::*};
@@ -100,6 +99,7 @@ fn diagram_round_state() {
     let config = DiagramConfig {
         max_actions: None,
         max_distance: Some(10),
+        max_iters: None,
         ignore_loopbacks: false,
     };
 

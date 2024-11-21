@@ -25,7 +25,11 @@ pub struct FetchPoolInfo {
 )]
 #[cfg_attr(
     feature = "fuzzing",
-    derive(arbitrary::Arbitrary, proptest_derive::Arbitrary)
+    derive(
+        arbitrary::Arbitrary,
+        proptest_derive::Arbitrary,
+        exhaustive::Exhaustive
+    )
 )]
 pub enum GossipType {
     /// The Recent gossip type is aimed at rapidly syncing the most recent

@@ -13,12 +13,7 @@ use super::*;
 fn scenario1() -> anyhow::Result<()> {
     use polestar::fsm::checked::Predicate as P;
     use polestar::prelude::*;
-    let certs = [
-        NodeCert::from(Arc::new([0; 32])),
-        NodeCert::from(Arc::new([1; 32])),
-        NodeCert::from(Arc::new([2; 32])),
-    ];
-    let cert = certs[0].clone();
+    let id = NodeId::try_from(0).unwrap();
 
     {
         let tgt = P::atom("tgt".into(), |m: &PeerModel| m.initiate_tgt.is_some());
@@ -30,28 +25,28 @@ fn scenario1() -> anyhow::Result<()> {
             })));
 
         model = model
-            .transition(NodeAction::SetInitiate(cert.clone()))
+            .transition(NodeAction::SetInitiate(id.clone(), false))
             .unwrap()
             .0;
-        assert_eq!(model.initiate_tgt.as_ref().unwrap().cert, cert);
+        assert_eq!(model.initiate_tgt.as_ref().unwrap().cert, id);
         model = model
-            .transition((cert.clone(), RoundAction::Accept).into())
-            .unwrap()
-            .0;
-        model = model
-            .transition((cert.clone(), RoundAction::AgentDiff).into())
+            .transition((id.clone(), RoundAction::Accept).into())
             .unwrap()
             .0;
         model = model
-            .transition((cert.clone(), RoundAction::Agents).into())
+            .transition((id.clone(), RoundAction::AgentDiff).into())
             .unwrap()
             .0;
         model = model
-            .transition((cert.clone(), RoundAction::OpDiff).into())
+            .transition((id.clone(), RoundAction::Agents).into())
             .unwrap()
             .0;
         model = model
-            .transition((cert.clone(), RoundAction::Ops).into())
+            .transition((id.clone(), RoundAction::OpDiff).into())
+            .unwrap()
+            .0;
+        model = model
+            .transition((id.clone(), RoundAction::Ops).into())
             .unwrap()
             .0;
         assert!(model.initiate_tgt.is_none());

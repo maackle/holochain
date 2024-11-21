@@ -1,35 +1,38 @@
 use std::collections::{BTreeMap, VecDeque};
 
+use anyhow::anyhow;
+use exhaustive::Exhaustive;
 use kitsune_p2p_types::GossipType;
 use polestar::prelude::*;
 use proptest_derive::Arbitrary;
 
-use crate::NodeCert;
-
-use super::peer_model::{NodeAction, PeerModel};
+use super::{
+    peer_model::{NodeAction, PeerModel},
+    NodeId,
+};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, derive_more::From)]
 pub struct GossipModel {
-    pub nodes: BTreeMap<NodeCert, PeerModel>,
-    pub inflight: VecDeque<(NodeCert, NodeAction)>,
+    pub nodes: BTreeMap<NodeId, PeerModel>,
+    pub inflight: VecDeque<(NodeId, NodeAction)>,
 }
 
 impl GossipModel {
-    pub fn new(gossip_type: GossipType, certs: &[NodeCert]) -> Self {
+    pub fn new(gossip_type: GossipType, ids: &[NodeId]) -> Self {
         Self {
-            nodes: certs
+            nodes: ids
                 .iter()
-                .map(|cert| (cert.clone(), PeerModel::new(gossip_type)))
+                .map(|id| (id.clone(), PeerModel::new(gossip_type)))
                 .collect(),
             inflight: VecDeque::default(),
         }
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, derive_more::From)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, Exhaustive, derive_more::From)]
 pub enum GossipAction {
     #[from]
-    NodeAction(NodeCert, NodeAction),
+    NodeAction(NodeId, NodeAction),
     Transmit,
 }
 
@@ -42,7 +45,10 @@ impl Machine for GossipModel {
     fn transition(mut self, action: Self::Action) -> MachineResult<Self> {
         let fx = match action {
             GossipAction::NodeAction(node, action) => {
-                let fx = self.nodes.transition_mut(node.clone(), action).unwrap()?;
+                let fx = self
+                    .nodes
+                    .transition_mut(node.clone(), action)
+                    .ok_or(anyhow!("no node {node}"))??;
                 self.inflight.extend(fx.into_iter().map(|(to, msg)| {
                     (
                         to.clone(),
@@ -72,22 +78,20 @@ impl Machine for GossipModel {
 mod tests {
     use std::sync::Arc;
 
+    use exhaustive::Exhaustive;
+    use itertools::Itertools;
     use kitsune_p2p_types::GossipType;
 
     use super::*;
 
     #[test]
     fn test_gossip() {
-        let certs = vec![
-            NodeCert::from(Arc::new([1u8; 32])),
-            NodeCert::from(Arc::new([2u8; 32])),
-            NodeCert::from(Arc::new([3u8; 32])),
-        ];
-        let mut model = GossipModel::new(GossipType::Recent, &certs);
+        let ids = NodeId::iter_exhaustive(None).collect_vec();
+        let mut model = GossipModel::new(GossipType::Recent, &ids);
         model = model
             .transition(GossipAction::NodeAction(
-                certs[0].clone(),
-                NodeAction::SetInitiate(certs[1].clone()),
+                ids[0].clone(),
+                NodeAction::SetInitiate(ids[1].clone(), false),
             ))
             .unwrap()
             .0;
