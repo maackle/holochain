@@ -219,6 +219,7 @@ impl ShardedGossip {
                                 "POLESTAR transition failure for {id:?}, local_cert={local_cert:?}"
                             );
                             eprintln!("================================================================================");
+                            eprintln!("vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv");
                             eprintln!("");
                             eprintln!("Cert: {:?}", local_cert);
                             eprintln!("Id: {:?}", id);
@@ -229,6 +230,7 @@ impl ShardedGossip {
                             eprintln!("");
                             eprintln!("Error: {:?}", error);
                             eprintln!("");
+                            eprintln!("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
                             eprintln!("================================================================================");
 
                             closing.store(true, std::sync::atomic::Ordering::SeqCst);

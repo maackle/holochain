@@ -11,6 +11,8 @@ use super::*;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn forever() {
+    tracing_subscriber::fmt::init();
+
     const N: usize = 3;
     const COMMIT_DELAY: Duration = Duration::from_secs(1);
 

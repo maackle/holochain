@@ -147,7 +147,7 @@ impl Machine for RoundState {
                         }
                     }
 
-                    tup => bail!("invalid transition: {tup:?}"),
+                    tup => tracing::error!("unexpected must_send: {tup:?}"),
                 }
                 (self, vec![])
             }
