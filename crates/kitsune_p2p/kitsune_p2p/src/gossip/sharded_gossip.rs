@@ -196,50 +196,51 @@ impl ShardedGossip {
                 let mut actions = vec![];
                 let id = PEER_PROJECTION.lock().id(local_cert.clone());
                 while let Ok(event) = polestar_receiver.recv() {
+                    if closing.load(std::sync::atomic::Ordering::SeqCst) {
+                        break;
+                    }
                     // Keep this locked for the whole transition so output doesn't get interleaved.
                     let mut projection = PEER_PROJECTION.lock();
                     let action = projection
                         .map_event(event)
                         .expect("POLESTAR event mapping failed");
 
-                    eprintln!("\nTRANSITION on {id:?}");
-                    eprintln!(" - event: {action:?}");
+                    tracing::info!("\nTRANSITION on {id:?}");
+                    tracing::info!(" - event: {action:?}");
 
                     actions.push(action.clone());
 
                     match model.clone().transition(action.clone()) {
                         Ok((next, _fx)) => model = next,
                         Err(error) => {
-                            eprintln!();
-                            eprintln!();
+                            eprintln!("");
+                            eprintln!("");
                             eprintln!(
                                 "POLESTAR transition failure for {id:?}, local_cert={local_cert:?}"
                             );
                             eprintln!("================================================================================");
-                            eprintln!();
+                            eprintln!("");
                             eprintln!("Cert: {:?}", local_cert);
                             eprintln!("Id: {:?}", id);
-                            eprintln!();
+                            eprintln!("");
                             eprintln!("Last model state: {:#?}", model);
-                            eprintln!();
+                            eprintln!("");
                             eprintln!("All actions (last one failed): {:#?}", actions);
-                            eprintln!();
+                            eprintln!("");
                             eprintln!("Error: {:?}", error);
-                            eprintln!();
+                            eprintln!("");
                             eprintln!("================================================================================");
 
                             closing.store(true, std::sync::atomic::Ordering::SeqCst);
 
-                            break;
+                            panic!(
+                                "polestar model failed to transition for {id:?}, local_cert={local_cert:?}. See tracing ERROR output for details."
+                            );
                         }
                     }
 
-                    eprintln!(" - model: {model:?}");
+                    tracing::info!(" - model: {model:?}");
                 }
-
-                panic!(
-                    "polestar model failed to transition for {id:?}, local_cert={local_cert:?}. See output for details."
-                );
             });
 
             gossip
