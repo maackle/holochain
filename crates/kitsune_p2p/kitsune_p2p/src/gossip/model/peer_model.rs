@@ -69,7 +69,9 @@ impl Machine for PeerModel {
             NodeAction::Incoming { from, msg } => match msg {
                 RoundAction::Initiate => {
                     if self.rounds.contains_key(&from) {
-                        bail!("already a round for {from:?}");
+                        tracing::error!("already a round for {from:?}");
+                        vec![]
+                        // bail!("already a round for {from:?}");
                     } else if self.initiate_tgt.as_ref().map(|t| &t.cert) == Some(&from) {
                         bail!("invalid Initiate from node that is initiate_tgt");
                     } else {
@@ -77,20 +79,21 @@ impl Machine for PeerModel {
                             from.clone(),
                             RoundPhase::Initiated.context(self.gossip_type),
                         );
+                        vec![
+                            (from.clone(), RoundAction::Accept),
+                            if self.gossip_type == GossipType::Recent {
+                                (from, RoundAction::AgentDiff)
+                            } else {
+                                (from, RoundAction::OpDiff)
+                            },
+                        ]
                     }
-
-                    vec![
-                        (from.clone(), RoundAction::Accept),
-                        if self.gossip_type == GossipType::Recent {
-                            (from, RoundAction::AgentDiff)
-                        } else {
-                            (from, RoundAction::OpDiff)
-                        },
-                    ]
                 }
                 RoundAction::Accept => {
                     if self.rounds.contains_key(&from) {
-                        bail!("already a round for {from:?}");
+                        tracing::error!("already a round for {from:?}");
+                        vec![]
+                        // bail!("already a round for {from:?}");
                     } else if self.initiate_tgt.as_ref().map(|t| &t.cert) != Some(&from) {
                         bail!("invalid Accept from node that is not initiate_tgt");
                     } else {
@@ -98,12 +101,11 @@ impl Machine for PeerModel {
                             from.clone(),
                             RoundPhase::Initiated.context(self.gossip_type),
                         );
-                    }
-
-                    if self.gossip_type == GossipType::Recent {
-                        vec![(from, RoundAction::AgentDiff)]
-                    } else {
-                        vec![(from, RoundAction::OpDiff)]
+                        if self.gossip_type == GossipType::Recent {
+                            vec![(from, RoundAction::AgentDiff)]
+                        } else {
+                            vec![(from, RoundAction::OpDiff)]
+                        }
                     }
                 }
                 RoundAction::Close => {

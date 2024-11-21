@@ -184,11 +184,13 @@ impl ShardedGossip {
                 .expect("POLESTAR model mapping failed");
             tokio::spawn(async move {
                 use polestar::Machine;
-                while let Ok((node, action)) = polestar_receiver.recv() {
+                while let Ok((node, event)) = polestar_receiver.recv() {
+                    dbg!(&model);
                     let id = projection.id(node.clone());
                     let action = projection
-                        .map_event((id, action))
+                        .map_event((id, event))
                         .expect("POLESTAR event mapping failed");
+                    dbg!(id, &action);
                     let (next, _fx) = model
                         .transition(action)
                         .expect("POLESTAR model failed to transition");
