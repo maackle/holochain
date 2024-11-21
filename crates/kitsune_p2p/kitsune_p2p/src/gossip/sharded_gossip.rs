@@ -177,6 +177,7 @@ impl ShardedGossip {
                 gossip_type,
                 closing: AtomicBool::new(false).into(),
                 fetch_pool,
+                // polestar_sender: None,
                 polestar_sender: Some(polestar_sender),
             };
 
@@ -184,18 +185,31 @@ impl ShardedGossip {
             let mut model = projection
                 .map_state(&gossip)
                 .expect("POLESTAR model mapping failed");
+
             tokio::spawn(async move {
                 use polestar::Machine;
                 while let Ok((node, event)) = polestar_receiver.recv() {
-                    dbg!(&model);
+                    // dbg!(&model);
                     let id = projection.id(node.clone());
 
                     let action = NodeAction::from_round_action(id, event);
-                    dbg!(id, &action);
-                    let (next, _fx) = model
-                        .transition(action)
-                        .expect("POLESTAR model failed to transition");
-                    model = next;
+                    // dbg!(id, &action);
+                    match model.clone().transition(action.clone()) {
+                        Ok((next, _fx)) => model = next,
+                        Err(e) => {
+                            eprintln!("POLESTAR transition failure");
+                            eprintln!("===========================");
+                            eprintln!();
+                            eprintln!("Error: {:?}", e);
+                            eprintln!();
+                            eprintln!("Last state: {:#?}", model);
+                            eprintln!();
+                            eprintln!("Last action: {:#?}", action);
+                            eprintln!();
+
+                            panic!("POLESTAR model failed to transition. See output for details.");
+                        }
+                    }
                 }
             });
 
