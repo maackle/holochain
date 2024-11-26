@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, io::Write};
 
-use crate::model::OpEvent;
+use crate::{dht_op::ChainOpType, model::OpEvent};
 use holo_hash::{
     ActionHash, AnyDhtHash, AnyDhtHashPrimitive, DhtOpHash, EntryHash, HashableContentExtSync,
 };
@@ -15,13 +15,15 @@ use parking_lot::Mutex;
 use polestar::id::IdMap;
 
 static OP_EVENT_WRITER: once_cell::sync::Lazy<Mutex<OpEventWriter>> =
-    once_cell::sync::Lazy::new(|| Mutex::new(OpEventWriter::new("/tmp/op_events.json")));
+    once_cell::sync::Lazy::new(|| Mutex::new(OpEventWriter::new("/tmp/op-events.json")));
 
 pub fn write_op_event(tag: &str, event: OpEvent) {
     OP_EVENT_WRITER.lock().write((tag.to_string(), event));
 }
 
-pub type OpId = usize;
+pub type DepId = usize;
+pub type TypeId = u8;
+pub type OpId = (DepId, TypeId);
 pub type NodeId = u8;
 pub type NodeTag = String;
 pub struct OpEventWriter {
@@ -52,9 +54,12 @@ impl OpEventWriter {
 
 #[derive(Default, Debug)]
 pub struct OpEventMapping {
-    node_ids: IdMap<NodeId, NodeTag>,
-    action_ids: IdMap<OpId, ActionHash>,
-    op_to_action: HashMap<DhtOpHash, ActionHash>,
+    node_ids: IdMap<NodeTag, NodeId>,
+    action_ids: IdMap<ActionHash, DepId>,
+    op_type_ids: IdMap<ChainOpType, TypeId>,
+
+    op_ids: HashMap<DhtOpHash, OpId>,
+
     entry_to_action: HashMap<EntryHash, ActionHash>,
     sent_ops: HashMap<DhtOpHash, NodeTag>,
 }
@@ -68,33 +73,31 @@ impl OpEventMapping {
     }
 
     pub fn op_id(&mut self, hash: &DhtOpHash) -> OpId {
-        let action_hash = self
-            .op_to_action
+        self.op_ids
             .get(hash)
             .unwrap_or_else(|| panic!("op_id miss {hash} state: {:#?}", self))
-            .clone();
-        self.action_id(&action_hash)
+            .clone()
     }
 
-    pub fn entry_id(&mut self, hash: &EntryHash) -> OpId {
+    pub fn entry_dep_id(&mut self, hash: &EntryHash) -> DepId {
         let action_hash = self
             .entry_to_action
             .get(hash)
             .unwrap_or_else(|| panic!("entry_id miss {hash} state: {:#?}", self))
             .clone();
-        self.action_id(&action_hash)
+        self.action_dep_id(&action_hash)
     }
 
-    pub fn action_id(&mut self, hash: &ActionHash) -> OpId {
+    pub fn action_dep_id(&mut self, hash: &ActionHash) -> DepId {
         self.action_ids
             .lookup(hash.clone())
             .unwrap_or_else(|e| panic!("{e} {hash} state: {:#?}", self))
     }
 
-    pub fn anydht_id(&mut self, hash: &AnyDhtHash) -> OpId {
+    pub fn anydht_dep_id(&mut self, hash: &AnyDhtHash) -> DepId {
         match hash.clone().into_primitive() {
-            AnyDhtHashPrimitive::Action(action_hash) => self.action_id(&action_hash),
-            AnyDhtHashPrimitive::Entry(entry_hash) => self.entry_id(&entry_hash),
+            AnyDhtHashPrimitive::Action(action_hash) => self.action_dep_id(&action_hash),
+            AnyDhtHashPrimitive::Entry(entry_hash) => self.entry_dep_id(&entry_hash),
         }
     }
 
@@ -102,16 +105,24 @@ impl OpEventMapping {
         dbg!((&node, &event));
 
         let action = match event {
-            OpEvent::Authored { op, action, entry } => {
+            OpEvent::Authored {
+                op,
+                op_type,
+                action,
+                entry,
+            } => {
                 let action_hash = action.clone();
-                self.op_to_action.insert(op, action_hash.clone());
+                let dep_id = self.action_ids.lookup(action_hash.clone()).unwrap();
+                let type_id = self.op_type_ids.lookup(op_type).unwrap();
+                let op_id = (dep_id, type_id);
+                self.op_ids.insert(op, op_id);
                 if let Some(entry_hash) = entry {
                     self.entry_to_action
                         .insert(entry_hash.clone(), action_hash.clone());
                 }
 
                 OpNetworkAction::Local {
-                    op: self.action_id(&action_hash),
+                    op: op_id,
                     action: OpAction::Store(true).into(),
                 }
             }
@@ -130,7 +141,7 @@ impl OpEventMapping {
             }
             OpEvent::AwaitingDeps { op, dep, kind } => OpNetworkAction::Local {
                 op: self.op_id(&op),
-                action: OpFamilyAction::Await(map_vt(kind), self.anydht_id(&dep)),
+                action: OpFamilyAction::Await(map_vt(kind), self.anydht_dep_id(&dep)),
             },
             OpEvent::Validated { op, kind } => OpNetworkAction::Local {
                 op: self.op_id(&op),

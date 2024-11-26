@@ -220,7 +220,7 @@ impl NodeAction {
 
 #[derive(Default)]
 pub struct PeerProjection {
-    ids: IdMap<IdU8<PEERS>, NodeCert>,
+    ids: IdMap<NodeCert, IdU8<PEERS>>,
 }
 
 impl PeerProjection {
@@ -333,10 +333,10 @@ mod tests {
             .init();
 
         let config = DiagramConfig {
-            max_actions: None,
-            max_distance: None,
             max_iters: Some(100000),
             ignore_loopbacks: true,
+            trace_errors: false,
+            ..Default::default()
         };
 
         let machine = PeerMachine::new(GossipType::Recent);

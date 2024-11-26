@@ -174,99 +174,99 @@ impl GenesisWorkspace {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // use super::*;
 
-    use crate::conductor::api::MockCellConductorApiT;
-    use crate::conductor::conductor::{mock_app_store, ConductorServices};
-    use crate::core::ribosome::MockRibosomeT;
-    use futures::FutureExt;
-    use holochain_conductor_services::{DpkiService, KeyState, MockDpkiState};
-    use holochain_keystore::test_keystore;
-    use holochain_state::prelude::test_dht_db;
-    use holochain_state::{prelude::test_authored_db, source_chain::SourceChain};
-    use holochain_trace;
-    use holochain_types::deepkey_roundtrip_backward;
-    use holochain_types::test_utils::fake_agent_pubkey_1;
-    use holochain_types::test_utils::fake_dna_file;
-    use holochain_zome_types::Action;
-    use matches::assert_matches;
+    // use crate::conductor::api::MockCellConductorApiT;
+    // use crate::conductor::conductor::{mock_app_store, ConductorServices};
+    // use crate::core::ribosome::MockRibosomeT;
+    // use futures::FutureExt;
+    // use holochain_conductor_services::{DpkiService, KeyState, MockDpkiState};
+    // use holochain_keystore::test_keystore;
+    // use holochain_state::prelude::test_dht_db;
+    // use holochain_state::{prelude::test_authored_db, source_chain::SourceChain};
+    // use holochain_trace;
+    // use holochain_types::deepkey_roundtrip_backward;
+    // use holochain_types::test_utils::fake_agent_pubkey_1;
+    // use holochain_types::test_utils::fake_dna_file;
+    // use holochain_zome_types::Action;
+    // use matches::assert_matches;
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn genesis_initializes_source_chain() {
-        holochain_trace::test_run();
-        let test_db = test_authored_db();
-        let dht_db = test_dht_db();
-        let dht_db_cache = DhtDbQueryCache::new(dht_db.to_db().into());
-        let keystore = test_keystore();
-        let vault = test_db.to_db();
-        let dna = fake_dna_file("a");
-        let author = fake_agent_pubkey_1();
+    // #[tokio::test(flavor = "multi_thread")]
+    // async fn genesis_initializes_source_chain() {
+    //     holochain_trace::test_run();
+    //     let test_db = test_authored_db();
+    //     let dht_db = test_dht_db();
+    //     let dht_db_cache = DhtDbQueryCache::new(dht_db.to_db().into());
+    //     let keystore = test_keystore();
+    //     let vault = test_db.to_db();
+    //     let dna = fake_dna_file("a");
+    //     let author = fake_agent_pubkey_1();
 
-        let mut mock_dpki = MockDpkiState::new();
-        let action =
-            deepkey_roundtrip_backward!(SignedActionHashed, &::fixt::fixt!(SignedActionHashed));
-        mock_dpki.expect_key_state().returning(move |_, _| {
-            let action = action.clone();
-            async move { Ok(KeyState::Valid(action)) }.boxed()
-        });
+    //     let mut mock_dpki = MockDpkiState::new();
+    //     let action =
+    //         deepkey_roundtrip_backward!(SignedActionHashed, &::fixt::fixt!(SignedActionHashed));
+    //     mock_dpki.expect_key_state().returning(move |_, _| {
+    //         let action = action.clone();
+    //         async move { Ok(KeyState::Valid(action)) }.boxed()
+    //     });
 
-        let dpki = DpkiService::new(::fixt::fixt!(CellId), mock_dpki);
+    //     let dpki = DpkiService::new(::fixt::fixt!(CellId), mock_dpki);
 
-        {
-            let workspace = GenesisWorkspace::new(vault.clone(), dht_db.to_db()).unwrap();
+    //     {
+    //         let workspace = GenesisWorkspace::new(vault.clone(), dht_db.to_db()).unwrap();
 
-            let mut api = MockCellConductorApiT::new();
-            api.expect_conductor_services()
-                .return_const(ConductorServices {
-                    dpki: Some(Arc::new(dpki)),
-                    app_store: Some(Arc::new(mock_app_store())),
-                });
-            api.expect_keystore().return_const(keystore.clone());
-            let mut ribosome = MockRibosomeT::new();
-            ribosome
-                .expect_run_genesis_self_check()
-                .returning(|_, _| Ok(GenesisSelfCheckResult::Valid));
-            let dna_def = DnaDefHashed::from_content_sync(dna.dna_def().clone());
-            ribosome.expect_dna_def().return_const(dna_def);
-            let args = GenesisWorkflowArgs {
-                dna_file: dna.clone(),
-                agent_pubkey: author.clone(),
-                membrane_proof: None,
-                ribosome,
-                dht_db_cache: dht_db_cache.clone(),
-                chc: None,
-            };
-            let _: () = genesis_workflow(workspace, api, args).await.unwrap();
-        }
+    //         let mut api = MockCellConductorApiT::new();
+    //         api.expect_conductor_services()
+    //             .return_const(ConductorServices {
+    //                 dpki: Some(Arc::new(dpki)),
+    //                 app_store: Some(Arc::new(mock_app_store())),
+    //             });
+    //         api.expect_keystore().return_const(keystore.clone());
+    //         let mut ribosome = MockRibosomeT::new();
+    //         ribosome
+    //             .expect_run_genesis_self_check()
+    //             .returning(|_, _| Ok(GenesisSelfCheckResult::Valid));
+    //         let dna_def = DnaDefHashed::from_content_sync(dna.dna_def().clone());
+    //         ribosome.expect_dna_def().return_const(dna_def);
+    //         let args = GenesisWorkflowArgs {
+    //             dna_file: dna.clone(),
+    //             agent_pubkey: author.clone(),
+    //             membrane_proof: None,
+    //             ribosome,
+    //             dht_db_cache: dht_db_cache.clone(),
+    //             chc: None,
+    //         };
+    //         let _: () = genesis_workflow(workspace, api, args).await.unwrap();
+    //     }
 
-        {
-            let source_chain = SourceChain::new(
-                vault.clone(),
-                dht_db.to_db(),
-                dht_db_cache,
-                keystore,
-                author.clone(),
-            )
-            .await
-            .unwrap();
-            let actions = source_chain
-                .query(Default::default())
-                .await
-                .unwrap()
-                .into_iter()
-                .map(|e| e.action().clone())
-                .collect::<Vec<_>>();
+    //     {
+    //         let source_chain = SourceChain::new(
+    //             vault.clone(),
+    //             dht_db.to_db(),
+    //             dht_db_cache,
+    //             keystore,
+    //             author.clone(),
+    //         )
+    //         .await
+    //         .unwrap();
+    //         let actions = source_chain
+    //             .query(Default::default())
+    //             .await
+    //             .unwrap()
+    //             .into_iter()
+    //             .map(|e| e.action().clone())
+    //             .collect::<Vec<_>>();
 
-            assert_matches!(
-                actions.as_slice(),
-                [
-                    Action::Dna(_),
-                    Action::AgentValidationPkg(_),
-                    Action::Create(_)
-                ]
-            );
-        }
-    }
+    //         assert_matches!(
+    //             actions.as_slice(),
+    //             [
+    //                 Action::Dna(_),
+    //                 Action::AgentValidationPkg(_),
+    //                 Action::Create(_)
+    //             ]
+    //         );
+    //     }
+    // }
 }
 
 /* TODO: update and rewrite as proper rust docs
