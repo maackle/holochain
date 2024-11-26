@@ -596,11 +596,12 @@ impl Agent {
         let environment_path = path.clone();
         let mut config = create_config(admin_port, environment_path.into());
         config.network = KitsuneP2pConfig::default().tune(|mut kc| {
-            kc.tx2_implicit_timeout_ms = 3_000;
+            kc.tx5_implicit_timeout_ms = 3_000;
             kc
         });
         config.keystore = KeystoreConfig::LairServerInProc { lair_root: None };
         config.tuning_params = Some(ConductorTuningParams {
+            countersigning_resolution_retry_limit: Some(3),
             countersigning_resolution_retry_delay: Some(Duration::from_secs(5)),
             min_publish_interval: Some(Duration::from_secs(5)),
             ..Default::default()

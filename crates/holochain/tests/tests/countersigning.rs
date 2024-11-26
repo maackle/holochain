@@ -1,3 +1,6 @@
+// Countersigning HDK functions needed
+#![cfg(feature = "unstable-functions")]
+
 use hdk::prelude::{PreflightRequest, PreflightRequestAcceptance};
 use holo_hash::{ActionHash, EntryHash};
 use holochain::conductor::api::error::{ConductorApiError, ConductorApiResult};
@@ -387,6 +390,7 @@ async fn alice_can_recover_from_a_session_timeout() {
     let config = SweetConductorConfig::rendezvous(true)
         .no_dpki()
         .tune_conductor(|c| {
+            c.countersigning_resolution_retry_limit = Some(3);
             c.countersigning_resolution_retry_delay = Some(Duration::from_secs(3));
         });
     let mut conductors = SweetConductorBatch::from_config_rendezvous(3, config).await;
@@ -1102,6 +1106,7 @@ async fn chc_should_respect_chain_lock() {
 
 #[tokio::test(flavor = "multi_thread")]
 #[cfg_attr(target_os = "windows", ignore = "flaky")]
+#[cfg(feature = "unstable-functions")]
 async fn should_be_able_to_schedule_functions_during_session() {
     holochain_trace::test_run();
 
@@ -1210,11 +1215,12 @@ async fn alice_can_force_abandon_session_when_automatic_resolution_has_failed_af
 
     let config = SweetConductorConfig::rendezvous(true)
         .tune_conductor(|c| {
+            c.countersigning_resolution_retry_limit = Some(3);
             c.countersigning_resolution_retry_delay = Some(Duration::from_secs(3));
         })
         .tune(|params| {
             // Incredible, but true: set the timeout for a network
-            params.tx2_implicit_timeout_ms = 3_000;
+            params.tx5_implicit_timeout_ms = 3_000;
         });
     let mut conductors = SweetConductorBatch::from_config_rendezvous(2, config).await;
 
@@ -1359,11 +1365,12 @@ async fn alice_can_force_publish_session_when_automatic_resolution_has_failed_af
 
     let config = SweetConductorConfig::rendezvous(true)
         .tune_conductor(|c| {
+            c.countersigning_resolution_retry_limit = Some(3);
             c.countersigning_resolution_retry_delay = Some(Duration::from_secs(3));
         })
         .tune(|params| {
             // Incredible, but true: set the timeout for a network
-            params.tx2_implicit_timeout_ms = 3_000;
+            params.tx5_implicit_timeout_ms = 3_000;
         });
     let mut conductors = SweetConductorBatch::from_config_rendezvous(2, config).await;
 

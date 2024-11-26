@@ -7,7 +7,7 @@ use holo_hash::AgentPubKey;
 use holochain_p2p::event::CountersigningSessionNegotiationMessage;
 use holochain_p2p::{HolochainP2pDna, HolochainP2pDnaT};
 use holochain_state::prelude::*;
-use kitsune_p2p_types::tx2::tx2_utils::Share;
+use kitsune_p2p_types::tx_utils::Share;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast::Sender;
@@ -442,12 +442,7 @@ async fn try_recover_failed_session(
                 update_last_attempted(workspace.clone(), true, outcomes, cell_id);
 
                 let resolution = get_resolution(workspace.clone());
-                if let Some(SessionResolutionSummary {
-                    required_reason: ResolutionRequiredReason::Timeout,
-                    attempts,
-                    ..
-                }) = resolution
-                {
+                if let Some(SessionResolutionSummary { attempts, .. }) = resolution {
                     let limit = workspace.countersigning_resolution_retry_limit.unwrap_or(0);
 
                     // If we have reached the limit of attempts, then abandon the session.
