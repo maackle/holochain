@@ -632,6 +632,7 @@ async fn test_gossip_startup() {
 #[cfg_attr(target_os = "macos", ignore = "flaky")]
 #[cfg_attr(target_os = "windows", ignore = "flaky")]
 async fn three_way_gossip_recent() {
+    // hc_sleuth::init_subscriber();
     holochain_trace::test_run();
 
     let config = TestConfig {
@@ -650,6 +651,7 @@ async fn three_way_gossip_recent() {
 #[cfg_attr(target_os = "macos", ignore = "flaky")]
 #[cfg_attr(target_os = "windows", ignore = "flaky")]
 async fn three_way_gossip_historical() {
+    // hc_sleuth::init_subscriber();
     holochain_trace::test_run();
 
     let config = TestConfig {
@@ -752,7 +754,8 @@ async fn three_way_gossip(config: holochain::sweettest::SweetConductorConfig) {
     SweetConductor::exchange_peer_info([&conductors[1], &conductors[2]]).await;
 
     println!(
-        "Newcomer agent joined: agent={:#?}",
+        "Newcomer agent joined: scope={}, agent={:#?}",
+        conductors[2].get_config().sleuth_id(),
         cell.agent_pubkey().to_kitsune()
     );
 

@@ -2518,6 +2518,7 @@ mod app_status_impls {
             // Add agents to local agent store in kitsune
 
             future::join_all(new_cells.iter().enumerate().map(|(i, (cell, _))| {
+                let sleuth_id = self.config.sleuth_id();
                 async move {
                     let p2p_agents_db = cell.p2p_agents_db().clone();
                     let cell_id = cell.id().clone();
@@ -2540,8 +2541,10 @@ mod app_status_impls {
                         Ok(r) => {
                             match r {
                                 Ok(_) => {
-                                    // all good
-
+                                    aitia::trace!(&hc_sleuth::Event::AgentJoined {
+                                        node: sleuth_id,
+                                        agent: cell_id.agent_pubkey().clone()
+                                    });
                                 }
                                 Err(e) => {
                                     tracing::error!(
