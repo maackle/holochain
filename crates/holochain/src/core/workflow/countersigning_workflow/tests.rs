@@ -1809,6 +1809,7 @@ impl TestHarness {
         let publish_trigger = TriggerSender::new();
 
         source_chain::genesis(
+            &Default::default(),
             test_space
                 .space
                 .get_or_create_authored_db(author.clone())

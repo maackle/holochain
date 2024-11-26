@@ -22,10 +22,12 @@ impl Conductor {
         // Get or create the space for this cell.
         let space = self.get_or_create_space(cell_id.dna_hash())?;
 
+        let tag = self.uid();
+
         let chc = None;
-        let network =
-            self.holochain_p2p()
-                .to_dna(cell_id.dna_hash().clone(), chc, self.tag().await?);
+        let network = self
+            .holochain_p2p()
+            .to_dna(cell_id.dna_hash().clone(), chc, self.uid());
 
         let source_chain: SourceChain = space
             .source_chain(self.keystore().clone(), cell_id.agent_pubkey().clone())
@@ -99,7 +101,7 @@ impl Conductor {
                             .map(|op| op.dht_basis().clone())
                             .collect::<Vec<_>>();
                         ops_to_integrate.extend(
-                            source_chain::put_raw(txn, sah, ops, entry)?
+                            source_chain::put_raw(txn, sah, ops, entry, tag.clone())?
                                 .into_iter()
                                 .zip(basis.into_iter()),
                         );
@@ -140,9 +142,9 @@ impl Conductor {
         let space = self.get_or_create_space(cell_id.dna_hash())?;
         let ribosome = self.get_ribosome(cell_id.dna_hash())?;
         let chc = None;
-        let network =
-            self.holochain_p2p()
-                .to_dna(cell_id.dna_hash().clone(), chc, self.tag().await?);
+        let network = self
+            .holochain_p2p()
+            .to_dna(cell_id.dna_hash().clone(), chc, self.uid());
 
         // Create a raw source chain to validate against because
         // genesis may not have been run yet.

@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use super::error::WorkflowError;
 use super::error::WorkflowResult;
+use crate::conductor::ConductorHandle;
 use crate::core::ribosome::guest_callback::genesis_self_check::v1::GenesisSelfCheckHostAccessV1;
 use crate::core::ribosome::guest_callback::genesis_self_check::v1::GenesisSelfCheckInvocationV1;
 use crate::core::ribosome::guest_callback::genesis_self_check::v2::GenesisSelfCheckHostAccessV2;
@@ -39,22 +40,22 @@ where
 }
 
 // #[cfg_attr(feature = "instrument", tracing::instrument(skip(workspace, api, args)))]
-pub async fn genesis_workflow<'env, Api: CellConductorApiT, Ribosome>(
+pub async fn genesis_workflow<'env, Ribosome>(
     mut workspace: GenesisWorkspace,
-    api: Api,
+    conductor: ConductorHandle,
     args: GenesisWorkflowArgs<Ribosome>,
 ) -> WorkflowResult<()>
 where
     Ribosome: RibosomeT + 'static,
 {
-    genesis_workflow_inner(&mut workspace, args, api).await?;
+    genesis_workflow_inner(&mut workspace, args, conductor).await?;
     Ok(())
 }
 
-async fn genesis_workflow_inner<Api: CellConductorApiT, Ribosome>(
+async fn genesis_workflow_inner<Ribosome>(
     workspace: &mut GenesisWorkspace,
     args: GenesisWorkflowArgs<Ribosome>,
-    api: Api,
+    conductor: ConductorHandle,
 ) -> WorkflowResult<()>
 where
     Ribosome: RibosomeT + 'static,
@@ -118,10 +119,11 @@ where
     //       registered at this point, so we can't.
 
     source_chain::genesis(
+        &conductor.uid(),
         workspace.vault.clone(),
         workspace.dht_db.clone(),
         &dht_db_cache,
-        api.keystore().clone(),
+        conductor.keystore().clone(),
         dna_file.dna_hash().clone(),
         agent_pubkey,
         membrane_proof,

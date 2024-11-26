@@ -183,8 +183,6 @@ impl Cell {
             .get_dna_file(cell_id.dna_hash())
             .ok_or_else(|| DnaError::DnaMissing(cell_id.dna_hash().to_owned()))?;
 
-        let conductor_api = CellConductorApi::new(conductor_handle.clone(), cell_id.clone());
-
         // run genesis
         let workspace = GenesisWorkspace::new(authored_db, dht_db)
             .map_err(ConductorApiError::from)
@@ -207,7 +205,7 @@ impl Cell {
             chc,
         );
 
-        genesis_workflow(workspace, conductor_api, args)
+        genesis_workflow(workspace, conductor_handle.clone(), args)
             .await
             .map_err(ConductorApiError::from)
             .map_err(Box::new)?;

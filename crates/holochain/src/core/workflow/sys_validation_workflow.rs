@@ -237,6 +237,7 @@ async fn sys_validation_workflow_inner(
     _keystore: MetaLairClient,
     _representative_agent: AgentPubKey,
 ) -> WorkflowResult<OutcomeSummary> {
+    let tag = _network.tag();
     let db = workspace.dht_db.clone();
     let sorted_ops = validation_query::get_ops_to_sys_validate(&db).await?;
 
@@ -349,11 +350,27 @@ async fn sys_validation_workflow_inner(
                                 put_integrated(txn, &op_hash, ValidationStatus::Valid)?
                             }
                         };
+                        holochain_types::projection::write_op_event(
+                            &tag,
+                            OpEvent::Validated {
+                                op: op_hash.clone(),
+                                kind: ValidationType::Sys,
+                            },
+                        );
                     }
                     Outcome::MissingDhtDep => {
                         summary.missing += 1;
                         let status = ValidationStage::AwaitingSysDeps;
                         put_validation_limbo(txn, &op_hash, status)?;
+                        holochain_types::projection::write_op_event(
+                            &tag,
+                            OpEvent::AwaitingDeps {
+                                op: op_hash.clone(),
+                                // There is only ever one dep
+                                dep: deps.first().unwrap().clone().into(),
+                                kind: ValidationType::Sys,
+                            },
+                        );
                     }
                     Outcome::Rejected(_) => {
                         invalid_ops.push((op_hash.clone(), op.clone()));

@@ -53,8 +53,6 @@ nanoid = { version = "0.4", optional = true }
 # contrafact
 contrafact = { version = "0.2.0-rc.1", optional = true }
 
-polestar = { version = "*", path = "/home/michael/proj/polestar-rs" }
-holochain-model = { version = "*", path = "/home/michael/proj/polestar-rs/holochain-model" }
 
 [dev-dependencies]
 holochain_state = { path = ".", features = ["test_utils", "sqlite"] }

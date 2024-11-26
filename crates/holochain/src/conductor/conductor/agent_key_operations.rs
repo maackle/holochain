@@ -71,7 +71,7 @@ impl Conductor {
         agent_key: AgentPubKey,
         app_id: InstalledAppId,
     ) -> ConductorResult<RevokeAgentKeyForAppResult> {
-        let tag = conductor.tag().await.unwrap();
+        let tag = conductor.uid();
         // If DPKI service is installed, revoke agent key there first
         if let Some(dpki_service) = conductor.running_services().dpki {
             let dpki_state = dpki_service.state().await;

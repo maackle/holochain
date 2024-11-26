@@ -55,6 +55,7 @@
 
 use crate::conductor::process::ERROR_CODE;
 use holochain_types::prelude::DbSyncStrategy;
+use holochain_types::ConductorStateTag;
 use kitsune_p2p_types::config::{KitsuneP2pConfig, KitsuneP2pTuningParams};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
@@ -180,6 +181,16 @@ impl ConductorConfig {
     /// Get the tracing scope from the network config
     pub fn tracing_scope(&self) -> Option<String> {
         self.network.tracing_scope.clone()
+    }
+
+    /// UID for event test
+    pub fn uid(&self) -> ConductorStateTag {
+        self.tracing_scope()
+            .map(|s| ConductorStateTag(s.into()))
+            .unwrap_or_else(|| {
+                ConductorStateTag("NO-TAG".into())
+                // self.get_state().await?.tag().clone()
+            })
     }
 
     /// Get the data directory for this config or say something nice and die.

@@ -843,6 +843,21 @@ impl ChainOpLite {
         }
     }
 
+    /// Get the entry hash from this op
+    pub fn entry_hash(&self) -> Option<&EntryHash> {
+        match &self {
+            Self::StoreRecord(_, e, _) => e.as_ref(),
+            Self::StoreEntry(_, e, _) => Some(e),
+            Self::RegisterUpdatedContent(_, e, _) => Some(e),
+            Self::RegisterUpdatedRecord(_, e, _) => Some(e),
+            Self::RegisterAgentActivity(_, _) => None,
+            Self::RegisterDeletedBy(_, _) => None,
+            Self::RegisterDeletedEntryAction(_, _) => None,
+            Self::RegisterAddLink(_, _) => None,
+            Self::RegisterRemoveLink(_, _) => None,
+        }
+    }
+
     /// Get the type as a unit enum, for Display purposes
     pub fn get_type(&self) -> ChainOpType {
         match self {

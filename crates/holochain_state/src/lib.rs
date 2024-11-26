@@ -27,11 +27,6 @@
 // TODO - address the underlying issue:
 #![allow(clippy::result_large_err)]
 
-use std::sync::Arc;
-
-use holochain_serialized_bytes::prelude::*;
-use serde::{Deserialize, Serialize};
-
 #[allow(missing_docs)]
 pub mod block;
 pub mod chain_lock;

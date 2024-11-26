@@ -406,7 +406,7 @@ mod single_conductor {
             .flush(&conductor.holochain_p2p().to_dna(
                 cell_id_1.dna_hash().clone(),
                 conductor.get_chc(&cell_id_1),
-                conductor.tag().await.unwrap(),
+                conductor.uid(),
             ))
             .await
             .unwrap();
