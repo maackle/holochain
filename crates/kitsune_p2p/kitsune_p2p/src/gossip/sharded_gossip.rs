@@ -3,7 +3,6 @@
 #![warn(missing_docs)]
 
 use crate::agent_store::AgentInfoSigned;
-use crate::gossip::model::peer_model::NodeAction;
 use crate::gossip::{decode_bloom_filter, encode_bloom_filter};
 use crate::types::event::*;
 use crate::types::gossip::*;
@@ -42,7 +41,6 @@ use self::store::AgentInfoSession;
 use crate::metrics::MetricsSync;
 
 use super::model::peer_model::{PeerMachine, PeerProjection};
-use super::model::round_model::RoundAction;
 use super::{HowToConnect, MetaOpKey};
 
 pub use bandwidth::BandwidthThrottles;

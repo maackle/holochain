@@ -7,6 +7,7 @@ pub enum OpEvent {
     /// The node has authored this op, including validation and integration
     Authored {
         op: DhtOpHash,
+        op_type: ChainOpType,
         action: ActionHash,
         entry: Option<EntryHash>,
     },
@@ -23,6 +24,9 @@ pub enum OpEvent {
 
     /// The node has sys validated an op authored by someone else
     Validated { op: DhtOpHash, kind: ValidationType },
+
+    /// The node has rejected an op
+    Rejected { op: DhtOpHash },
 
     /// The node has app validated an op authored by someone else
     AwaitingDeps {
@@ -45,6 +49,7 @@ impl OpEvent {
         let entry_hash = op.entry_hash().cloned();
         Self::Authored {
             op: op_hash,
+            op_type: op.get_type(),
             action: action_hash,
             entry: entry_hash,
         }

@@ -322,6 +322,7 @@ async fn app_validation_workflow_inner(
 
                             holochain_types::projection::write_op_event(&tag, OpEvent::AwaitingDeps { op: dht_op_hash.clone(), dep: dep.clone(), kind: ValidationType::App });
 
+                            dbg!("app val await");
                             awaiting_ops.fetch_add(1, Ordering::SeqCst);
                             put_validation_limbo(
                                 txn,
@@ -334,11 +335,19 @@ async fn app_validation_workflow_inner(
 
                             tracing::info!("Received invalid op. The op author will be blocked. Op: {dht_op_lite:?}");
 
+                            holochain_types::projection::write_op_event(
+                                &tag,
+                                OpEvent::Rejected {
+                                    op: dht_op_hash.clone(),
+                                },
+                            );
+
                             if deps.is_empty() {
                                 put_integrated(txn, &dht_op_hash, ValidationStatus::Rejected)
                             } else {
                                 put_integration_limbo(txn, &dht_op_hash, ValidationStatus::Rejected)
                             }
+
                         }
                     })
                     .await;

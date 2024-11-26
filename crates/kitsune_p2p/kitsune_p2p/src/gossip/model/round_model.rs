@@ -196,10 +196,9 @@ fn diagram_round_state() {
     tracing::subscriber::set_global_default(tracing_subscriber::FmtSubscriber::new()).unwrap();
 
     let config = DiagramConfig {
-        max_actions: None,
         max_distance: Some(10),
-        max_iters: None,
         ignore_loopbacks: false,
+        ..Default::default()
     };
 
     print_dot_state_diagram_mapped(
