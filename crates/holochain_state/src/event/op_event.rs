@@ -19,16 +19,13 @@ pub enum OpEvent {
     Fetched { op: DhtOp },
 
     /// The node has sys validated an op authored by someone else
-    Validated {
-        op: DhtOpHash,
-        validation_type: ValidationType,
-    },
+    Validated { op: DhtOpHash, kind: ValidationType },
 
     /// The node has app validated an op authored by someone else
     AwaitingDeps {
         op: DhtOpHash,
         dep: DhtOpHash,
-        validation_type: ValidationType,
+        kind: ValidationType,
     },
 
     /// The node has integrated an op authored by someone else
@@ -74,7 +71,7 @@ impl OpEventStore {
                 }
                 OpEvent::Validated {
                     op: op_hash,
-                    validation_type: ValidationType::Sys,
+                    kind: ValidationType::Sys,
                 } => {
                     self.dht
                         .write_async(move |txn| set_when_sys_validated(txn, &op_hash, timestamp))
@@ -82,7 +79,7 @@ impl OpEventStore {
                 }
                 OpEvent::Validated {
                     op: op_hash,
-                    validation_type: ValidationType::App,
+                    kind: ValidationType::App,
                 } => {
                     self.dht
                         .write_async(move |txn| set_when_app_validated(txn, &op_hash, timestamp))
@@ -197,7 +194,8 @@ impl OpEventStore {
                         // The existence of a when_sys_validated timestamp
                         // implies the SysValidated event
                         if let Some(when_sys_validated) = row.get("when_sys_validated")? {
-                            let ev = OpEvent::SysValidated {
+                            let ev = OpEvent::Validated {
+                                kind: ValidationType::Sys,
                                 op: op_hash.clone(),
                             };
                             events.push(Event::new(when_sys_validated, ev));
@@ -206,7 +204,8 @@ impl OpEventStore {
                         // The existence of a when_app_validated timestamp
                         // implies the AppValidated event
                         if let Some(when_app_validated) = row.get("when_app_validated")? {
-                            let ev = OpEvent::AppValidated {
+                            let ev = OpEvent::Validated {
+                                kind: ValidationType::App,
                                 op: op_hash.clone(),
                             };
                             events.push(Event::new(when_app_validated, ev));
@@ -308,24 +307,29 @@ mod tests {
             Event::now(Fetched { op: ops[1].clone() }),
             Event::now(Fetched { op: ops[2].clone() }),
             // op 0 is integrated
-            Event::now(SysValidated {
+            Event::now(Validated {
+                kind: ValidationType::Sys,
                 op: ops[0].to_hash(),
             }),
-            Event::now(AppValidated {
+            Event::now(Validated {
+                kind: ValidationType::App,
                 op: ops[0].to_hash(),
             }),
             Event::now(Integrated {
                 op: ops[0].to_hash(),
             }),
             // op 1 is merely app validated
-            Event::now(SysValidated {
+            Event::now(Validated {
+                kind: ValidationType::Sys,
                 op: ops[1].to_hash(),
             }),
-            Event::now(AppValidated {
+            Event::now(Validated {
+                kind: ValidationType::App,
                 op: ops[1].to_hash(),
             }),
             // op 2 is merely sys validated
-            Event::now(SysValidated {
+            Event::now(Validated {
+                kind: ValidationType::Sys,
                 op: ops[2].to_hash(),
             }),
         ];

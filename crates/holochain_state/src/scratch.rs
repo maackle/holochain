@@ -355,7 +355,7 @@ CREATE TABLE mytable (
         .unwrap()
         .prepare_cached("SELECT x FROM mytable")
         .unwrap()
-        .query_map([], |row| row.get(0))
+        .query_map([], |row| row.get::<_, u16>(0))
         .unwrap()
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
@@ -365,7 +365,7 @@ CREATE TABLE mytable (
         .unwrap()
         .prepare_cached("SELECT * FROM mytable")
         .unwrap()
-        .query_map([], |row| row.get(0))
+        .query_map([], |row| row.get::<_, u16>(0))
         .unwrap()
         .collect::<Result<Vec<_>, _>>()
         .unwrap();

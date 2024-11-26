@@ -8,6 +8,7 @@ use anyhow::bail;
 use polestar::prelude::*;
 use proptest_derive::Arbitrary;
 
+#[derive(Debug)]
 pub struct RoundMachine(pub GossipType);
 
 impl RoundMachine {

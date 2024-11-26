@@ -24,7 +24,7 @@ use super::{
     NodeId, PEERS,
 };
 
-#[derive(derive_more::Deref)]
+#[derive(Debug, derive_more::Deref)]
 pub struct PeerMachine(RoundMachine);
 
 impl PeerMachine {
@@ -33,7 +33,7 @@ impl PeerMachine {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, derive_more::From)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash, Arbitrary, derive_more::From)]
 pub struct PeerState {
     pub rounds: BTreeMap<NodeId, RoundPhase>,
     pub initiate_tgt: Option<Tgt>,
@@ -41,10 +41,7 @@ pub struct PeerState {
 
 impl PeerState {
     pub fn new() -> Self {
-        Self {
-            rounds: BTreeMap::default(),
-            initiate_tgt: None,
-        }
+        Self::default()
     }
 
     fn finish_round(&mut self, peer: &NodeId) {
@@ -290,8 +287,7 @@ impl Projection for PeerProjection {
                             super::round_model::map_state(v.clone()).unwrap(),
                         )
                     })
-                    .collect::<BTreeMap<NodeId, RoundPhase>>()
-                    .into();
+                    .collect::<BTreeMap<NodeId, RoundPhase>>();
 
                 let initiate_tgt = s.initiate_tgt.as_ref().map(|t| Tgt {
                     cert: self.ids.lookup(t.cert.clone()).unwrap(),

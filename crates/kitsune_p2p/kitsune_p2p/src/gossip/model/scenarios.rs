@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use kitsune_p2p_bin_data::NodeCert;
 use kitsune_p2p_types::GossipType;
-use peer_model::*;
+use peer_model::{NodeAction, PeerMachine, PeerState};
 use polestar::prelude::*;
 use round_model::{RoundAction, RoundMsg};
 
@@ -11,46 +11,49 @@ use super::*;
 
 #[test]
 fn scenario1() -> anyhow::Result<()> {
-    use polestar::dfa::checked::Predicate as P;
+    use polestar::machine::checked::Predicate as P;
     use polestar::prelude::*;
-    let id = NodeId::try_from(0).unwrap();
+    let id = NodeId::new(0);
 
     {
-        let tgt = P::atom("tgt".into(), |m: &PeerState| m.initiate_tgt.is_some());
-        let mut model = PeerState::new(GossipType::Recent)
-            .checked(|s| s)
-            .predicate(P::always(tgt.clone().implies(P::eventually(P::not(tgt)))))
-            .predicate(P::eventually(P::atom("1-round".into(), |m: &PeerState| {
-                m.rounds.len() == 1
-            })));
+        let tgt = P::atom("tgt", |m: &PeerState| m.initiate_tgt.is_some());
+        let one_round = P::atom("one_round", |m: &PeerState| m.rounds.len() == 1);
 
-        model = model
-            .transition(NodeAction::SetInitiate(id.clone(), false))
+        let machine = PeerMachine::new(GossipType::Recent)
+            .checked()
+            .with_predicates([
+                P::always(tgt.clone().implies(P::eventually(P::not(tgt)))),
+                P::eventually(one_round),
+            ]);
+
+        let mut state = machine.initial(PeerState::new());
+        state = machine
+            .transition(state, NodeAction::SetInitiate(id.clone(), false))
             .unwrap()
             .0;
-        assert_eq!(model.initiate_tgt.as_ref().unwrap().cert, id);
-        model = model
-            .transition((id.clone(), RoundMsg::Accept).into())
+        assert_eq!(state.initiate_tgt.as_ref().unwrap().cert, id);
+        state = machine
+            .transition(state, (id, RoundMsg::Accept).into())
             .unwrap()
             .0;
-        model = model
-            .transition((id.clone(), RoundMsg::AgentDiff).into())
+        state = machine
+            .transition(state, (id, RoundMsg::AgentDiff).into())
             .unwrap()
             .0;
-        model = model
-            .transition((id.clone(), RoundMsg::Agents).into())
+        state = machine
+            .transition(state, (id, RoundMsg::Agents).into())
             .unwrap()
             .0;
-        model = model
-            .transition((id.clone(), RoundMsg::OpDiff).into())
+        state = machine
+            .transition(state, (id, RoundMsg::OpDiff).into())
             .unwrap()
             .0;
-        model = model
-            .transition((id.clone(), RoundMsg::Ops).into())
+        state = machine
+            .transition(state, (id, RoundMsg::Ops).into())
             .unwrap()
             .0;
-        assert!(model.initiate_tgt.is_none());
-        assert_eq!(model.rounds.len(), 0);
+        assert!(state.initiate_tgt.is_none());
+        assert_eq!(state.rounds.len(), 0);
     }
     Ok(())
 }

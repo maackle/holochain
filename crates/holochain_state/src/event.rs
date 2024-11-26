@@ -64,14 +64,14 @@ impl EventData {
             Self::Op(e) => match e {
                 OpEvent::Authored { op } => op.signature().as_ref(),
                 OpEvent::Fetched { op } => op.signature().as_ref(),
-                OpEvent::SysValidated { op } => op.as_ref(),
-                OpEvent::AppValidated { op } => op.as_ref(),
+                OpEvent::Validated { kind: _, op } => op.as_ref(),
                 OpEvent::Integrated { op } => op.as_ref(),
                 OpEvent::ReceivedValidationReceipt { receipt } => receipt
                     .validators_signatures
                     .first()
                     .map(|s| s.as_ref())
                     .unwrap_or(&[]),
+                OpEvent::AwaitingDeps { op, .. } => op.as_ref(),
             },
         }
     }

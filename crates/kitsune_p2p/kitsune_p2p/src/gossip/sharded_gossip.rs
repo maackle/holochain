@@ -216,23 +216,23 @@ impl ShardedGossip {
                     match machine.transition(state.clone(), action.clone()) {
                         Ok((next, _fx)) => state = next,
                         Err(error) => {
-                            eprintln!("");
-                            eprintln!("");
+                            eprintln!();
+                            eprintln!();
                             eprintln!(
                                 "POLESTAR transition failure for {id:?}, local_cert={local_cert:?}"
                             );
                             eprintln!("================================================================================");
                             eprintln!("vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv");
-                            eprintln!("");
+                            eprintln!();
                             eprintln!("Cert: {:?}", local_cert);
                             eprintln!("Id: {:?}", id);
-                            eprintln!("");
+                            eprintln!();
                             eprintln!("Last model state: {:#?}", state);
-                            eprintln!("");
+                            eprintln!();
                             eprintln!("All actions (last one failed): {:#?}", actions);
-                            eprintln!("");
+                            eprintln!();
                             eprintln!("Error: {:?}", error);
-                            eprintln!("");
+                            eprintln!();
                             eprintln!("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
                             eprintln!("================================================================================");
 
@@ -573,11 +573,6 @@ pub enum ShardedGossipEvent {
     MustSend(NodeCert),
     TieBreakLoser(NodeCert),
 }
-
-#[cfg(feature = "fuzzing")]
-pub(crate) type PolestarSender = Option<std::sync::mpsc::Sender<ShardedGossipEvent>>;
-#[cfg(not(feature = "fuzzing"))]
-pub(crate) type PolestarSender = Option<()>;
 
 /// Incoming gossip.
 type Incoming = (MetaNetCon, String, ShardedGossipWire, usize);

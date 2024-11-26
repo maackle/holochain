@@ -29,10 +29,7 @@ pub struct GossipState {
 impl GossipState {
     pub fn new(ids: &[NodeId]) -> Self {
         Self {
-            nodes: ids
-                .iter()
-                .map(|id| (id.clone(), PeerState::new()))
-                .collect(),
+            nodes: ids.iter().map(|id| (*id, PeerState::new())).collect(),
             inflight: VecDeque::default(),
         }
     }
@@ -61,16 +58,11 @@ impl Machine for GossipMachine {
             GossipAction::NodeAction(node, action) => {
                 let fx = state
                     .nodes
-                    .owned_update(node.clone(), |_, s| self.0.transition(s, action))?;
-                state.inflight.extend(fx.into_iter().map(|(to, msg)| {
-                    (
-                        to.clone(),
-                        NodeAction::Incoming {
-                            from: node.clone(),
-                            msg,
-                        },
-                    )
-                }));
+                    .owned_update(node, |_, s| self.0.transition(s, action))?;
+                state.inflight.extend(
+                    fx.into_iter()
+                        .map(|(to, msg)| (to.clone(), NodeAction::Incoming { from: node, msg })),
+                );
                 true
             }
             GossipAction::Transmit => {
@@ -101,19 +93,22 @@ mod tests {
     fn test_gossip() {
         let ids = NodeId::iter_exhaustive(None).collect_vec();
         let machine = GossipMachine::new(GossipType::Recent);
-        let mut model = GossipState::new(&ids);
-        model = model
-            .transition(GossipAction::NodeAction(
-                ids[0].clone(),
-                NodeAction::SetInitiate(ids[1].clone(), false),
-            ))
+        let mut state = GossipState::new(&ids);
+        state = machine
+            .transition(
+                state,
+                GossipAction::NodeAction(
+                    ids[0].clone(),
+                    NodeAction::SetInitiate(ids[1].clone(), false),
+                ),
+            )
             .unwrap()
             .0;
 
         loop {
-            let (next, changed) = model.transition(GossipAction::Transmit).unwrap();
-            model = next;
-            dbg!(&model);
+            let (next, changed) = machine.transition(state, GossipAction::Transmit).unwrap();
+            state = next;
+            dbg!(&state);
             if !changed {
                 break;
             }
