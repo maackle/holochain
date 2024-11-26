@@ -211,7 +211,7 @@ async fn app_validation_workflow_inner(
     let db = workspace.dht_db.clone().into();
     let sorted_dht_ops = validation_query::get_ops_to_app_validate(&db).await?;
     let num_ops_to_validate = sorted_dht_ops.len();
-    let tag = conductor.tag().await.unwrap();
+    let tag = conductor.uid();
 
     let cascade = Arc::new(workspace.full_cascade(network.clone()));
     let accepted_ops = Arc::new(AtomicUsize::new(0));
@@ -309,7 +309,7 @@ async fn app_validation_workflow_inner(
                         Outcome::Accepted => {
                             accepted_ops.fetch_add(1, Ordering::SeqCst);
 
-                            write_op_event(&tag, OpEvent::Validated { op: dht_op_hash.clone(), kind: ValidationType::App });
+                            holochain_types::projection::write_op_event(&tag, OpEvent::Validated { op: dht_op_hash.clone(), kind: ValidationType::App });
 
                             if deps.is_empty() {
                                 put_integrated(txn, &dht_op_hash, ValidationStatus::Valid)
@@ -320,7 +320,7 @@ async fn app_validation_workflow_inner(
                         Outcome::AwaitingDeps(deps) => {
                             let dep = deps.first().unwrap();
 
-                            write_op_event(&tag, OpEvent::AwaitingDeps { op: dht_op_hash.clone(), dep: dep.clone(), kind: ValidationType::App });
+                            holochain_types::projection::write_op_event(&tag, OpEvent::AwaitingDeps { op: dht_op_hash.clone(), dep: dep.clone(), kind: ValidationType::App });
 
                             awaiting_ops.fetch_add(1, Ordering::SeqCst);
                             put_validation_limbo(

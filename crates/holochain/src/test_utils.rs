@@ -999,6 +999,7 @@ pub async fn fake_genesis_for_agent(
     let dna_hash = dna.dna_hash().clone();
 
     source_chain::genesis(
+        &Default::default(),
         vault,
         dht_db.clone(),
         &DhtDbQueryCache::new(dht_db.clone().into()),

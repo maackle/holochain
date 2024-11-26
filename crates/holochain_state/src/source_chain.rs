@@ -25,6 +25,7 @@ use holochain_sqlite::sql::sql_conductor::SELECT_VALID_CAP_GRANT_FOR_CAP_SECRET;
 use holochain_sqlite::sql::sql_conductor::SELECT_VALID_UNRESTRICTED_CAP_GRANT;
 use holochain_state_types::SourceChainDumpRecord;
 use holochain_types::sql::AsSql;
+use holochain_types::ConductorStateTag;
 
 use crate::prelude::*;
 use crate::source_chain;
@@ -393,8 +394,14 @@ impl SourceChain {
 
                     {
                         // Query the op we just inserted
-                        let op = get_op_from_db(txn, op_hash)?.unwrap();
-                        write_op_event(&tag, OpEvent::authored(op.into_content()))
+                        let (op, hash) =
+                            get_op_from_db(txn, op_hash).unwrap().unwrap().into_inner();
+                        if let Some(op) = op.to_lite().as_chain_op() {
+                            holochain_types::projection::write_op_event(
+                                &tag,
+                                OpEvent::authored(op.clone(), hash),
+                            );
+                        }
                     }
 
                     // If this is a countersigning session we want to withhold
@@ -1102,6 +1109,7 @@ async fn rebase_actions_on(
 #[allow(clippy::too_many_arguments)]
 #[cfg_attr(feature = "instrument", tracing::instrument(skip_all))]
 pub async fn genesis(
+    tag: &ConductorStateTag,
     authored: DbWrite<DbKindAuthored>,
     dht_db: DbWrite<DbKindDht>,
     dht_db_cache: &DhtDbQueryCache,
@@ -1177,21 +1185,32 @@ pub async fn genesis(
     }
 
     let ops_to_integrate = authored
-        .write_async(move |txn| {
-            ops_to_integrate.extend(source_chain::put_raw(txn, dna_action, dna_ops, None)?);
-            ops_to_integrate.extend(source_chain::put_raw(
-                txn,
-                agent_validation_action,
-                avh_ops,
-                None,
-            )?);
-            ops_to_integrate.extend(source_chain::put_raw(
-                txn,
-                agent_action,
-                agent_ops,
-                agent_entry,
-            )?);
-            SourceChainResult::Ok(ops_to_integrate)
+        .write_async({
+            let tag = tag.clone();
+            move |txn| {
+                ops_to_integrate.extend(source_chain::put_raw(
+                    txn,
+                    dna_action,
+                    dna_ops,
+                    None,
+                    tag.clone(),
+                )?);
+                ops_to_integrate.extend(source_chain::put_raw(
+                    txn,
+                    agent_validation_action,
+                    avh_ops,
+                    None,
+                    tag.clone(),
+                )?);
+                ops_to_integrate.extend(source_chain::put_raw(
+                    txn,
+                    agent_action,
+                    agent_ops,
+                    agent_entry,
+                    tag.clone(),
+                )?);
+                SourceChainResult::Ok(ops_to_integrate)
+            }
         })
         .await?;
 
@@ -1215,6 +1234,7 @@ pub fn put_raw(
     shh: SignedActionHashed,
     ops: Vec<ChainOpLite>,
     entry: Option<Entry>,
+    tag: ConductorStateTag,
 ) -> StateMutationResult<Vec<DhtOpHash>> {
     let (action, signature) = shh.into_inner();
     let (action, hash) = action.into_inner();
@@ -1240,7 +1260,15 @@ pub fn put_raw(
     }
     insert_action(txn, &shh)?;
     for (op, (op_hash, op_order, timestamp)) in ops.into_iter().zip(hashes) {
-        insert_op_lite(txn, &op.into(), &op_hash, &op_order, &timestamp, None)?;
+        insert_op_lite(
+            txn,
+            &op.clone().into(),
+            &op_hash,
+            &op_order,
+            &timestamp,
+            None,
+        )?;
+        holochain_types::projection::write_op_event(&tag, OpEvent::authored(op.clone(), op_hash));
     }
     Ok(ops_to_integrate)
 }
@@ -1293,66 +1321,66 @@ pub fn current_countersigning_session(
     }
 }
 
-#[cfg(test)]
-async fn _put_db<H: ActionUnweighed, B: ActionBuilder<H>>(
-    vault: holochain_types::prelude::DbWrite<DbKindAuthored>,
-    keystore: &MetaLairClient,
-    author: Arc<AgentPubKey>,
-    action_builder: B,
-    maybe_entry: Option<Entry>,
-) -> SourceChainResult<ActionHash> {
-    let HeadInfo {
-        action: prev_action,
-        seq: last_action_seq,
-        ..
-    } = vault
-        .read_async({
-            let query_author = author.clone();
+// #[cfg(test)]
+// async fn _put_db<H: ActionUnweighed, B: ActionBuilder<H>>(
+//     vault: holochain_types::prelude::DbWrite<DbKindAuthored>,
+//     keystore: &MetaLairClient,
+//     author: Arc<AgentPubKey>,
+//     action_builder: B,
+//     maybe_entry: Option<Entry>,
+// ) -> SourceChainResult<ActionHash> {
+//     let HeadInfo {
+//         action: prev_action,
+//         seq: last_action_seq,
+//         ..
+//     } = vault
+//         .read_async({
+//             let query_author = author.clone();
 
-            move |txn| chain_head_db_nonempty(txn, query_author.clone())
-        })
-        .await?;
-    let action_seq = last_action_seq + 1;
+//             move |txn| chain_head_db_nonempty(txn, query_author.clone())
+//         })
+//         .await?;
+//     let action_seq = last_action_seq + 1;
 
-    let common = ActionBuilderCommon {
-        author: (*author).clone(),
-        timestamp: Timestamp::now(),
-        action_seq,
-        prev_action: prev_action.clone(),
-    };
-    let action = action_builder.build(common).weightless();
-    let action = ActionHashed::from_content_sync(action);
-    let action = SignedActionHashed::sign(keystore, action).await?;
-    let record = Record::new(action, maybe_entry);
-    let ops = produce_op_lites_from_records(vec![&record])?;
-    let (action, entry) = record.into_inner();
-    let entry = entry.into_option();
-    let hash = action.as_hash().clone();
-    vault
-        .write_async(move |txn| -> SourceChainResult<Vec<DhtOpHash>> {
-            let head_info = chain_head_db_nonempty(txn, author.clone())?;
-            if head_info.action != prev_action {
-                let entries = match (entry, action.action().entry_hash()) {
-                    (Some(e), Some(entry_hash)) => {
-                        vec![holochain_types::EntryHashed::with_pre_hashed(
-                            e,
-                            entry_hash.clone(),
-                        )]
-                    }
-                    _ => vec![],
-                };
-                return Err(SourceChainError::HeadMoved(
-                    vec![action],
-                    entries,
-                    Some(prev_action),
-                    Some(head_info),
-                ));
-            }
-            Ok(put_raw(txn, action, ops, entry)?)
-        })
-        .await?;
-    Ok(hash)
-}
+//     let common = ActionBuilderCommon {
+//         author: (*author).clone(),
+//         timestamp: Timestamp::now(),
+//         action_seq,
+//         prev_action: prev_action.clone(),
+//     };
+//     let action = action_builder.build(common).weightless();
+//     let action = ActionHashed::from_content_sync(action);
+//     let action = SignedActionHashed::sign(keystore, action).await?;
+//     let record = Record::new(action, maybe_entry);
+//     let ops = produce_op_lites_from_records(vec![&record])?;
+//     let (action, entry) = record.into_inner();
+//     let entry = entry.into_option();
+//     let hash = action.as_hash().clone();
+//     vault
+//         .write_async(move |txn| -> SourceChainResult<Vec<DhtOpHash>> {
+//             let head_info = chain_head_db_nonempty(txn, author.clone())?;
+//             if head_info.action != prev_action {
+//                 let entries = match (entry, action.action().entry_hash()) {
+//                     (Some(e), Some(entry_hash)) => {
+//                         vec![holochain_types::EntryHashed::with_pre_hashed(
+//                             e,
+//                             entry_hash.clone(),
+//                         )]
+//                     }
+//                     _ => vec![],
+//                 };
+//                 return Err(SourceChainError::HeadMoved(
+//                     vec![action],
+//                     entries,
+//                     Some(prev_action),
+//                     Some(head_info),
+//                 ));
+//             }
+//             Ok(put_raw(txn, action, ops, entry)?)
+//         })
+//         .await?;
+//     Ok(hash)
+// }
 
 /// dump the entire source chain as a pretty-printed json string
 #[cfg_attr(feature = "instrument", tracing::instrument(skip_all))]
@@ -1464,6 +1492,7 @@ mod tests {
         let dht_db_cache = DhtDbQueryCache::new(dht_db.to_db().into());
 
         source_chain::genesis(
+            &Default::default(),
             db.clone(),
             dht_db.to_db(),
             &dht_db_cache,
@@ -1556,6 +1585,7 @@ mod tests {
         let dht_db_cache = DhtDbQueryCache::new(dht_db.to_db().into());
 
         source_chain::genesis(
+            &Default::default(),
             db.clone(),
             dht_db.to_db(),
             &dht_db_cache,
@@ -1694,6 +1724,7 @@ mod tests {
         mock_network.expect_chc().return_const(None);
 
         source_chain::genesis(
+            &Default::default(),
             authored_db.clone(),
             dht_db.clone(),
             &dht_db_cache,
@@ -1748,6 +1779,7 @@ mod tests {
         // predictable fixturator creates only two different agent keys
         let carol = keystore.new_sign_keypair_random().await.unwrap();
         source_chain::genesis(
+            &Default::default(),
             db.clone(),
             dht_db.to_db(),
             &dht_db_cache,
@@ -1918,6 +1950,7 @@ mod tests {
         // to access carol's chain
         {
             source_chain::genesis(
+                &Default::default(),
                 db.clone(),
                 dht_db.to_db(),
                 &dht_db_cache,
@@ -2048,6 +2081,7 @@ mod tests {
         {
             {
                 source_chain::genesis(
+                    &Default::default(),
                     db.clone(),
                     dht_db.to_db(),
                     &dht_db_cache,
@@ -2188,7 +2222,7 @@ mod tests {
     //     {
     //         let mut store = SourceChainBuf::new(db.clone().into(), &db).await?;
     //         store
-    //             .genesis(fake_dna_hash(1), fake_agent_pubkey_1(), None)
+    //             .genesis(&Default::default(),fake_dna_hash(1), fake_agent_pubkey_1(), None)
     //             .await?;
     //         arc.conn().unwrap().with_commit(|writer| store.flush_to_txn(writer))?;
     //     }
@@ -2246,6 +2280,7 @@ mod tests {
             .await
             .unwrap();
         genesis(
+            &Default::default(),
             vault.clone(),
             dht_db.to_db(),
             &dht_db_cache,
@@ -2346,6 +2381,7 @@ mod tests {
         let vault = test_db.to_db();
         let author = keystore.new_sign_keypair_random().await.unwrap();
         genesis(
+            &Default::default(),
             vault.clone(),
             dht_db.to_db(),
             &dht_db_cache,
@@ -2388,6 +2424,7 @@ mod tests {
         let dna_hash = fixt!(DnaHash);
 
         genesis(
+            &Default::default(),
             vault.clone(),
             dht_db.to_db(),
             &dht_db_cache,
@@ -2401,6 +2438,7 @@ mod tests {
         .unwrap();
 
         genesis(
+            &Default::default(),
             vault.clone(),
             dht_db.to_db(),
             &dht_db_cache,
@@ -2532,6 +2570,7 @@ mod tests {
         let dna_hash = fixt!(DnaHash);
 
         genesis(
+            &Default::default(),
             vault.clone(),
             dht_db.to_db(),
             &dht_db_cache,
@@ -2573,6 +2612,7 @@ mod tests {
         let dna_hash = fixt!(DnaHash);
 
         genesis(
+            &Default::default(),
             vault.clone(),
             dht_db.to_db(),
             &dht_db_cache,

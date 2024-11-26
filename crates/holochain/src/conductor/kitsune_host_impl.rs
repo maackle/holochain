@@ -20,6 +20,7 @@ use holochain_p2p::{
 };
 use holochain_sqlite::prelude::{AsP2pMetricStoreTxExt, AsP2pStateReadExt, AsP2pStateWriteExt};
 use holochain_types::{
+    model::OpEvent,
     prelude::{DhtOpHash, DnaError},
     share::RwShare,
 };
@@ -299,9 +300,11 @@ impl KitsuneHost for KitsuneHostImpl {
     fn handle_op_hash_transmitted(
         &self,
         _space: &KitsuneSpace,
-        _op_hash: &RoughSized<KOpHash>,
+        op_hash: &RoughSized<KOpHash>,
         _transfer_method: TransferMethod,
     ) {
+        let op = DhtOpHash::from_kitsune(op_hash);
+        holochain_types::projection::write_op_event(&self.config.uid(), OpEvent::Sent { op });
     }
 
     fn lair_tag(&self) -> Option<Arc<str>> {

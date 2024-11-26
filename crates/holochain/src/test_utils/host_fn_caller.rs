@@ -124,11 +124,9 @@ impl HostFnCaller {
         let dht_db_cache = handle.get_dht_db_cache(cell_id.dna_hash()).unwrap();
         let cache = handle.get_cache_db(cell_id).await.unwrap();
         let keystore = handle.keystore().clone();
-        let network = handle.holochain_p2p().to_dna(
-            cell_id.dna_hash().clone(),
-            None,
-            handle.tag().await.unwrap(),
-        );
+        let network = handle
+            .holochain_p2p()
+            .to_dna(cell_id.dna_hash().clone(), None, handle.uid());
 
         let zome_path = (
             cell_id.clone(),

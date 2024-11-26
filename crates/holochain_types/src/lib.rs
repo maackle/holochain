@@ -28,7 +28,9 @@ pub mod entry;
 pub mod link;
 mod macros;
 pub mod metadata;
+pub mod model;
 pub mod prelude;
+pub mod projection;
 pub mod rate_limit;
 pub mod record;
 pub mod share;
@@ -48,6 +50,7 @@ pub mod facts;
 
 #[cfg(feature = "test_utils")]
 pub mod inline_zome;
+
 #[cfg(feature = "test_utils")]
 pub mod test_utils;
 pub mod websocket;

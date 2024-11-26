@@ -2868,8 +2868,8 @@ mod misc_impls {
 
     impl Conductor {
         /// Get the unique tag for the conductor
-        pub async fn tag(&self) -> ConductorResult<ConductorStateTag> {
-            Ok(self.get_state().await?.tag().clone())
+        pub fn uid(&self) -> ConductorStateTag {
+            self.config.uid()
         }
 
         /// Grant a zome call capability for a cell
@@ -3608,7 +3608,7 @@ impl Conductor {
             .running_cells
             .share_ref(|c| c.keys().cloned().collect());
 
-        let tag = self.tag().await.unwrap();
+        let tag = self.uid();
 
         let tasks = app_cells.difference(&on_cells).map(|cell_id| {
             let handle = self.clone();

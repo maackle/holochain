@@ -3153,6 +3153,7 @@ dependencies = [
  "proptest",
  "proptest-derive 0.4.0",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3566,7 +3567,6 @@ dependencies = [
  "fallible-iterator 0.3.0",
  "fixt",
  "holo_hash",
- "holochain-model",
  "holochain_chc",
  "holochain_keystore",
  "holochain_nonce",
@@ -3587,7 +3587,6 @@ dependencies = [
  "once_cell",
  "one_err",
  "parking_lot 0.12.3",
- "polestar",
  "pretty_assertions",
  "serde",
  "serde_json",
@@ -3656,6 +3655,7 @@ dependencies = [
  "futures",
  "getrandom 0.2.15",
  "holo_hash",
+ "holochain-model",
  "holochain_keystore",
  "holochain_nonce",
  "holochain_serialized_bytes",
@@ -3673,8 +3673,10 @@ dependencies = [
  "mr_bundle",
  "must_future",
  "nanoid",
+ "once_cell",
  "one_err",
  "parking_lot 0.12.3",
+ "polestar",
  "pretty_assertions",
  "proptest",
  "proptest-derive 0.5.0",

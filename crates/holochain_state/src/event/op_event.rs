@@ -12,51 +12,6 @@ use crate::{prelude::*, query::map_sql_dht_op};
 
 use super::{Event, EventData, EventResult};
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub enum OpEvent {
-    /// The node has authored this op, including validation and integration
-    Authored {
-        op: DhtOp,
-        action: ActionHash,
-        entry: Option<EntryHash>,
-    },
-
-    /// The node has fetched this op from another node via the FetchPool
-    /// The Option is because Holochain does not currently store the origin of
-    /// an op in the database, but once it does, this can be non-optional.
-    Fetched { op: DhtOp, from: Option<NodeTag> },
-
-    /// The node has sys validated an op authored by someone else
-    Validated { op: DhtOpHash, kind: ValidationType },
-
-    /// The node has app validated an op authored by someone else
-    AwaitingDeps {
-        op: DhtOpHash,
-        dep: AnyDhtHash,
-        kind: ValidationType,
-    },
-
-    /// The node has integrated an op authored by someone else
-    Integrated { op: DhtOpHash },
-
-    /// The node has received a validation receipt from another
-    /// agent for op it authored
-    ReceivedValidationReceipt { receipt: SignedValidationReceipt },
-}
-
-impl OpEvent {
-    pub fn authored(op: DhtOp) -> Self {
-        let action = op.as_chain_op().expect("warrants not handled yet").action();
-        let action_hash = action.to_hash();
-        let entry_hash = action.entry_data().map(first).cloned();
-        Self::Authored {
-            op,
-            action: action_hash,
-            entry: entry_hash,
-        }
-    }
-}
-
 pub type NodeTag = String;
 
 #[derive(derive_more::Constructor)]
