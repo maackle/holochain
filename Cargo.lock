@@ -513,7 +513,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b99d887f4066f8a1b4a713a8121fab07ff543863ac86177ebdee6b5cb18acf12"
 dependencies = [
  "cfg-if 1.0.0",
- "derive_more",
+ "derive_more 0.99.18",
  "serde",
  "shrinkwraprs",
 ]
@@ -648,6 +648,15 @@ name = "bitflags"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b048fb63fd8b5923fc5aa7b340d8e156aec7ec02f0c78fa8a6ddc2613f6f71de"
+
+[[package]]
+name = "bitmaps"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "031043d04099746d8db04daf1fa424b2bc8bd69d92b25962dcde24da39ab64a2"
+dependencies = [
+ "typenum",
+]
 
 [[package]]
 name = "bitvec"
@@ -1113,7 +1122,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65bfae7a2ef93841d7e9e5ef69e387b26e70f7b156434b6b95714006cc00e1f9"
 dependencies = [
  "arbitrary",
- "derive_more",
+ "derive_more 0.99.18",
  "either",
  "itertools 0.10.5",
  "num",
@@ -1127,6 +1136,15 @@ name = "convert_case"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
+
+[[package]]
+name = "convert_case"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
+dependencies = [
+ "unicode-segmentation",
+]
 
 [[package]]
 name = "core-foundation"
@@ -1745,11 +1763,33 @@ version = "0.99.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f33878137e4dafd7fa914ad4e259e18a4e8e532b9617a2d0150262bf53abfce"
 dependencies = [
- "convert_case",
+ "convert_case 0.4.0",
  "proc-macro2",
  "quote",
  "rustc_version",
  "syn 2.0.87",
+]
+
+[[package]]
+name = "derive_more"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a9b99b9cbbe49445b21764dc0625032a89b145a2642e67603e1c936f5458d05"
+dependencies = [
+ "derive_more-impl",
+]
+
+[[package]]
+name = "derive_more-impl"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb7330aeadfbe296029522e6c40f315320aba36fc43a5b3632f3795348f3bd22"
+dependencies = [
+ "convert_case 0.6.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
+ "unicode-xid",
 ]
 
 [[package]]
@@ -2053,6 +2093,14 @@ name = "exhaustive"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c17d918b02c5e21eca6c159d2af826465c29c327677e724abe734d85eac36bb4"
+dependencies = [
+ "exhaustive_macros",
+]
+
+[[package]]
+name = "exhaustive"
+version = "0.2.1"
+source = "git+https://github.com/maackle/exhaustive.git#4d100cc7016a6846614957fda71e4953f915f4ce"
 dependencies = [
  "exhaustive_macros",
 ]
@@ -2978,7 +3026,7 @@ dependencies = [
  "arbitrary",
  "base64 0.22.1",
  "blake2b_simd",
- "derive_more",
+ "derive_more 0.99.18",
  "fixt",
  "futures",
  "holochain_serialized_bytes",
@@ -3015,7 +3063,7 @@ dependencies = [
  "clap 4.5.21",
  "contrafact",
  "criterion",
- "derive_more",
+ "derive_more 0.99.18",
  "diff",
  "ed25519-dalek",
  "either",
@@ -3152,7 +3200,7 @@ name = "holochain_chc"
 version = "0.2.0-dev.3"
 dependencies = [
  "async-trait",
- "derive_more",
+ "derive_more 0.99.18",
  "fixt",
  "futures",
  "getrandom 0.2.15",
@@ -3264,7 +3312,7 @@ name = "holochain_conductor_api"
 version = "0.5.0-dev.3"
 dependencies = [
  "cfg-if 1.0.0",
- "derive_more",
+ "derive_more 0.99.18",
  "holo_hash",
  "holochain_keystore",
  "holochain_serialized_bytes",
@@ -3296,7 +3344,7 @@ dependencies = [
  "anyhow",
  "arbitrary",
  "async-trait",
- "derive_more",
+ "derive_more 0.99.18",
  "futures",
  "hc_deepkey_sdk",
  "hdk",
@@ -3347,7 +3395,7 @@ version = "0.5.0-dev.3"
 dependencies = [
  "assert_cmd",
  "base64 0.22.1",
- "derive_more",
+ "derive_more 0.99.18",
  "futures",
  "holo_hash",
  "holochain_secure_primitive",
@@ -3402,7 +3450,7 @@ name = "holochain_p2p"
 version = "0.5.0-dev.3"
 dependencies = [
  "async-trait",
- "derive_more",
+ "derive_more 0.99.18",
  "fixt",
  "futures",
  "ghost_actor",
@@ -3471,7 +3519,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "base64 0.22.1",
- "derive_more",
+ "derive_more 0.99.18",
  "fallible-iterator 0.3.0",
  "futures",
  "getrandom 0.2.15",
@@ -3523,7 +3571,7 @@ dependencies = [
  "chrono",
  "contrafact",
  "cron",
- "derive_more",
+ "derive_more 0.99.18",
  "fallible-iterator 0.3.0",
  "fixt",
  "holo_hash",
@@ -3578,7 +3626,7 @@ name = "holochain_trace"
 version = "0.5.0-dev.1"
 dependencies = [
  "chrono",
- "derive_more",
+ "derive_more 0.99.18",
  "holochain_serialized_bytes",
  "inferno",
  "once_cell",
@@ -3608,7 +3656,7 @@ dependencies = [
  "chrono",
  "contrafact",
  "derive_builder 0.20.2",
- "derive_more",
+ "derive_more 0.99.18",
  "fixt",
  "flate2",
  "futures",
@@ -3757,7 +3805,7 @@ dependencies = [
  "arbitrary",
  "contrafact",
  "derive_builder 0.20.2",
- "derive_more",
+ "derive_more 0.99.18",
  "fixt",
  "holo_hash",
  "holochain_integrity_types",
@@ -4195,6 +4243,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "im"
+version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0acd33ff0285af998aaf9b57342af478078f53492322fafc47450e09397e0e9"
+dependencies = [
+ "bitmaps",
+ "rand_core 0.6.4",
+ "rand_xoshiro",
+ "sized-chunks",
+ "typenum",
+ "version_check",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4559,8 +4621,8 @@ dependencies = [
  "bloomfilter",
  "bytes",
  "contrafact",
- "derive_more",
- "exhaustive",
+ "derive_more 0.99.18",
+ "exhaustive 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "fixt",
  "futures",
  "ghost_actor",
@@ -4610,7 +4672,7 @@ version = "0.5.0-dev.1"
 dependencies = [
  "arbitrary",
  "base64 0.22.1",
- "derive_more",
+ "derive_more 0.99.18",
  "fixt",
  "holochain_util",
  "kitsune_p2p_dht_arc",
@@ -4678,7 +4740,7 @@ dependencies = [
  "arbitrary",
  "colored",
  "derivative",
- "derive_more",
+ "derive_more 0.99.18",
  "futures",
  "holochain_serialized_bytes",
  "holochain_trace",
@@ -4704,7 +4766,7 @@ name = "kitsune_p2p_dht_arc"
 version = "0.5.0-dev.1"
 dependencies = [
  "arbitrary",
- "derive_more",
+ "derive_more 0.99.18",
  "gcollections",
  "holochain_trace",
  "intervallum",
@@ -4727,7 +4789,7 @@ version = "0.5.0-dev.3"
 dependencies = [
  "arbitrary",
  "backon",
- "derive_more",
+ "derive_more 0.99.18",
  "holochain_serialized_bytes",
  "holochain_trace",
  "human-repr",
@@ -4766,7 +4828,7 @@ dependencies = [
  "base64 0.22.1",
  "criterion",
  "crossterm 0.27.0",
- "derive_more",
+ "derive_more 0.99.18",
  "futures",
  "holochain_trace",
  "kitsune_p2p_types",
@@ -4798,8 +4860,8 @@ dependencies = [
  "arbitrary",
  "base64 0.22.1",
  "criterion",
- "derive_more",
- "exhaustive",
+ "derive_more 0.99.18",
+ "exhaustive 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "fixt",
  "futures",
  "ghost_actor",
@@ -5279,7 +5341,7 @@ version = "0.5.0-dev.0"
 dependencies = [
  "anyhow",
  "arbitrary",
- "derive_more",
+ "derive_more 0.99.18",
  "flate2",
  "futures",
  "holochain_util",
@@ -5947,8 +6009,9 @@ name = "polestar"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "derive_more",
- "exhaustive",
+ "derive_more 1.0.0",
+ "exhaustive 0.2.1 (git+https://github.com/maackle/exhaustive.git)",
+ "im",
  "num-derive",
  "num-traits",
  "parking_lot 0.12.3",
@@ -6458,6 +6521,15 @@ name = "rand_xorshift"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d25bf25ec5ae4a3f1b92f929810509a2f53d7dca2f50b794ff57e3face536c8f"
+dependencies = [
+ "rand_core 0.6.4",
+]
+
+[[package]]
+name = "rand_xoshiro"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f97cdb2a36ed4183de61b2f824cc45c9f1037f28afe0a322e9fff4c108b5aaa"
 dependencies = [
  "rand_core 0.6.4",
 ]
@@ -7533,6 +7605,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56199f7ddabf13fe5074ce809e7d3f42b42ae711800501b5b16ea82ad029c39d"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "sized-chunks"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16d69225bde7a69b235da73377861095455d298f2b970996eec25ddbb42b3d1e"
+dependencies = [
+ "bitmaps",
+ "typenum",
 ]
 
 [[package]]
