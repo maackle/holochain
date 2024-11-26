@@ -3,26 +3,35 @@ use std::collections::{BTreeMap, VecDeque};
 use anyhow::anyhow;
 use exhaustive::Exhaustive;
 use kitsune_p2p_types::GossipType;
-use polestar::prelude::*;
+use polestar::{ext::MapExt, prelude::*};
 use proptest_derive::Arbitrary;
 
 use super::{
-    peer_model::{NodeAction, PeerModel},
+    peer_model::{NodeAction, PeerMachine, PeerState},
     NodeId,
 };
 
+#[derive(derive_more::Deref)]
+pub struct GossipMachine(pub PeerMachine);
+
+impl GossipMachine {
+    pub fn new(gossip_type: GossipType) -> Self {
+        Self(PeerMachine::new(gossip_type))
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, derive_more::From)]
-pub struct GossipModel {
-    pub nodes: BTreeMap<NodeId, PeerModel>,
+pub struct GossipState {
+    pub nodes: BTreeMap<NodeId, PeerState>,
     pub inflight: VecDeque<(NodeId, NodeAction)>,
 }
 
-impl GossipModel {
-    pub fn new(gossip_type: GossipType, ids: &[NodeId]) -> Self {
+impl GossipState {
+    pub fn new(ids: &[NodeId]) -> Self {
         Self {
             nodes: ids
                 .iter()
-                .map(|id| (id.clone(), PeerModel::new(gossip_type)))
+                .map(|id| (id.clone(), PeerState::new()))
                 .collect(),
             inflight: VecDeque::default(),
         }
@@ -36,20 +45,24 @@ pub enum GossipAction {
     Transmit,
 }
 
-impl Machine for GossipModel {
+impl Machine for GossipMachine {
+    type State = GossipState;
     type Action = GossipAction;
     /// Whether the model has changed
     type Fx = bool;
     type Error = anyhow::Error;
 
-    fn transition(mut self, action: Self::Action) -> MachineResult<Self> {
-        let fx = match action {
+    fn is_terminal(&self, _: &Self::State) -> bool {
+        false
+    }
+
+    fn transition(&self, mut state: GossipState, action: Self::Action) -> TransitionResult<Self> {
+        let changed = match action {
             GossipAction::NodeAction(node, action) => {
-                let fx = self
+                let fx = state
                     .nodes
-                    .transition_mut(node.clone(), action)
-                    .ok_or(anyhow!("no node {node}"))??;
-                self.inflight.extend(fx.into_iter().map(|(to, msg)| {
+                    .owned_update(node.clone(), |_, s| self.0.transition(s, action))?;
+                state.inflight.extend(fx.into_iter().map(|(to, msg)| {
                     (
                         to.clone(),
                         NodeAction::Incoming {
@@ -61,16 +74,16 @@ impl Machine for GossipModel {
                 true
             }
             GossipAction::Transmit => {
-                if let Some(msg) = self.inflight.pop_front() {
-                    let (next, fx) = self.transition(msg.into())?;
-                    self = next;
+                if let Some(msg) = state.inflight.pop_front() {
+                    let (next, fx) = self.transition(state, msg.into())?;
+                    state = next;
                     fx
                 } else {
                     false
                 }
             }
         };
-        Ok((self, fx))
+        Ok((state, changed))
     }
 }
 
@@ -87,7 +100,8 @@ mod tests {
     #[test]
     fn test_gossip() {
         let ids = NodeId::iter_exhaustive(None).collect_vec();
-        let mut model = GossipModel::new(GossipType::Recent, &ids);
+        let machine = GossipMachine::new(GossipType::Recent);
+        let mut model = GossipState::new(&ids);
         model = model
             .transition(GossipAction::NodeAction(
                 ids[0].clone(),

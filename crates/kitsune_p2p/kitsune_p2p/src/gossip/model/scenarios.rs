@@ -16,11 +16,11 @@ fn scenario1() -> anyhow::Result<()> {
     let id = NodeId::try_from(0).unwrap();
 
     {
-        let tgt = P::atom("tgt".into(), |m: &PeerModel| m.initiate_tgt.is_some());
-        let mut model = PeerModel::new(GossipType::Recent)
+        let tgt = P::atom("tgt".into(), |m: &PeerState| m.initiate_tgt.is_some());
+        let mut model = PeerState::new(GossipType::Recent)
             .checked(|s| s)
             .predicate(P::always(tgt.clone().implies(P::eventually(P::not(tgt)))))
-            .predicate(P::eventually(P::atom("1-round".into(), |m: &PeerModel| {
+            .predicate(P::eventually(P::atom("1-round".into(), |m: &PeerState| {
                 m.rounds.len() == 1
             })));
 

@@ -5,8 +5,16 @@ use crate::{
     gossip::sharded_gossip::{store::AgentInfoSession, ShardedGossipWire},
 };
 use anyhow::bail;
-use polestar::{dfa::Contextual, prelude::*};
+use polestar::prelude::*;
 use proptest_derive::Arbitrary;
+
+pub struct RoundMachine(pub GossipType);
+
+impl RoundMachine {
+    pub fn gossip_type(&self) -> GossipType {
+        self.0
+    }
+}
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
 pub enum RoundPhase {
@@ -46,13 +54,12 @@ impl RoundPhase {
     }
 }
 
-pub type RoundState = RoundPhase;
 // #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary)]
-// pub struct RoundState {
+// pub struct RoundPhase {
 //     pub phase: RoundPhase,
 // }
 
-// impl RoundState {
+// impl RoundPhase {
 //     pub fn new(phase: RoundPhase) -> Self {
 //         Self { phase }
 //     }
@@ -85,21 +92,24 @@ pub enum RoundMsg {
     Close,
 }
 
-pub type RoundContext = GossipType;
-
-impl Machine for RoundState {
-    type Action = (RoundAction, Arc<RoundContext>);
+impl Machine for RoundMachine {
+    type State = RoundPhase;
+    type Action = RoundAction;
     type Fx = Vec<RoundMsg>;
     type Error = anyhow::Error;
 
-    fn transition(mut self, (action, ctx): Self::Action) -> MachineResult<Self> {
+    fn is_terminal(&self, state: &Self::State) -> bool {
+        matches!(state, RoundPhase::Finished)
+    }
+
+    fn transition(&self, mut state: RoundPhase, action: Self::Action) -> TransitionResult<Self> {
         use GossipType as T;
         use RoundMsg as M;
         use RoundPhase as P;
 
         Ok(match action {
             RoundAction::Msg(msg) => {
-                let (phase, fx) = match (*ctx, msg, self) {
+                let (phase, fx) = match (self.gossip_type(), msg, state) {
                     (T::Recent, M::AgentDiff, P::Started(true)) => {
                         (P::AgentDiffReceived, vec![M::Agents])
                     }
@@ -134,7 +144,7 @@ impl Machine for RoundState {
             }
 
             RoundAction::MustSend => {
-                match (*ctx, &mut self) {
+                match (self.gossip_type(), &mut state) {
                     (
                         T::Recent,
                         P::Started(ref mut must_send) | P::AgentsReceived(ref mut must_send),
@@ -149,13 +159,11 @@ impl Machine for RoundState {
 
                     tup => tracing::error!("unexpected must_send: {tup:?}"),
                 }
-                (self, vec![])
+                (state, vec![])
             }
         })
     }
 }
-
-pub type RoundFsm = Contextual<RoundState, RoundContext>;
 
 pub fn map_event(msg: ShardedGossipWire) -> Option<RoundMsg> {
     match msg {
@@ -175,7 +183,7 @@ pub fn map_event(msg: ShardedGossipWire) -> Option<RoundMsg> {
     }
 }
 
-pub fn map_state(state: crate::gossip::sharded_gossip::RoundState) -> Option<RoundState> {
+pub fn map_state(state: crate::gossip::sharded_gossip::RoundState) -> Option<RoundPhase> {
     todo!()
 }
 
@@ -194,14 +202,18 @@ fn diagram_round_state() {
     };
 
     print_dot_state_diagram_mapped(
-        (RoundPhase::Started(false)).context(GossipType::Recent),
+        RoundMachine(GossipType::Recent),
+        RoundPhase::Started(false),
         &config,
         |m| m.combined(),
+        |e| e,
     );
 
     print_dot_state_diagram_mapped(
-        (RoundPhase::Started(false)).context(GossipType::Historical),
+        RoundMachine(GossipType::Historical),
+        RoundPhase::Started(false),
         &config,
         |m| m.combined(),
+        |e| e,
     );
 }

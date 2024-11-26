@@ -2,12 +2,9 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     dependencies::kitsune_p2p_types::{KitsuneError, KitsuneResult},
-    gossip::{
-        model::round_model::RoundState,
-        sharded_gossip::{
-            store::AgentInfoSession, Initiate, ShardedGossipEvent, ShardedGossipLocal,
-            ShardedGossipWire,
-        },
+    gossip::sharded_gossip::{
+        store::AgentInfoSession, Initiate, ShardedGossipEvent, ShardedGossipLocal,
+        ShardedGossipWire,
     },
 };
 use anyhow::{anyhow, bail};
@@ -20,23 +17,33 @@ use polestar::{
 };
 use proptest_derive::Arbitrary;
 
-use crate::gossip::model::round_model::{RoundAction, RoundFsm, RoundPhase};
+use crate::gossip::model::round_model::{RoundAction, RoundPhase};
 
-use super::{round_model::RoundMsg, NodeId, PEERS};
+use super::{
+    round_model::{RoundMachine, RoundMsg},
+    NodeId, PEERS,
+};
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, derive_more::From)]
-pub struct PeerModel {
-    pub rounds: BTreeMap<NodeId, RoundFsm>,
-    pub initiate_tgt: Option<Tgt>,
-    pub gossip_type: GossipType,
+#[derive(derive_more::Deref)]
+pub struct PeerMachine(RoundMachine);
+
+impl PeerMachine {
+    pub fn new(gossip_type: GossipType) -> Self {
+        Self(RoundMachine(gossip_type))
+    }
 }
 
-impl PeerModel {
-    pub fn new(gossip_type: GossipType) -> Self {
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, derive_more::From)]
+pub struct PeerState {
+    pub rounds: BTreeMap<NodeId, RoundPhase>,
+    pub initiate_tgt: Option<Tgt>,
+}
+
+impl PeerState {
+    pub fn new() -> Self {
         Self {
             rounds: BTreeMap::default(),
             initiate_tgt: None,
-            gossip_type,
         }
     }
 
@@ -48,17 +55,22 @@ impl PeerModel {
     }
 }
 
-impl Machine for PeerModel {
+impl Machine for PeerMachine {
+    type State = PeerState;
     type Action = NodeAction;
     type Fx = Vec<(NodeId, RoundMsg)>;
     type Error = anyhow::Error;
 
+    fn is_terminal(&self, _: &Self::State) -> bool {
+        false
+    }
+
     #[allow(clippy::map_entry)]
-    fn transition(mut self, action: Self::Action) -> MachineResult<Self> {
+    fn transition(&self, mut state: Self::State, action: Self::Action) -> TransitionResult<Self> {
         let fx = match action {
             NodeAction::SetInitiate(with_node, tie_break) => {
-                if self.initiate_tgt.is_none() {
-                    self.initiate_tgt = Some(Tgt {
+                if state.initiate_tgt.is_none() {
+                    state.initiate_tgt = Some(Tgt {
                         cert: with_node.clone(),
                         tie_break,
                     });
@@ -66,12 +78,12 @@ impl Machine for PeerModel {
                 vec![(with_node, RoundMsg::Initiate)]
             }
             NodeAction::Timeout(peer) => {
-                self.rounds.remove(&peer);
-                self.finish_round(&peer);
+                state.rounds.remove(&peer);
+                state.finish_round(&peer);
                 vec![]
             }
             NodeAction::TieBreakLoser(peer) => {
-                if let Some(tgt) = self.initiate_tgt.take() {
+                if let Some(tgt) = state.initiate_tgt.take() {
                     if tgt.cert == peer {
                         vec![]
                     } else {
@@ -85,21 +97,20 @@ impl Machine for PeerModel {
                 from,
                 msg: RoundMsg::Initiate,
             } => {
-                if self.rounds.contains_key(&from) {
+                if state.rounds.contains_key(&from) {
                     tracing::error!("already a round for {from:?}");
                     vec![]
                     // bail!("already a round for {from:?}");
-                } else if self.initiate_tgt.as_ref().map(|t| &t.cert) == Some(&from) {
+                } else if state.initiate_tgt.as_ref().map(|t| &t.cert) == Some(&from) {
                     tracing::warn!("Initiate from node that is initiate_tgt. This is expected to happen once per pair when there is a tie breaker.");
                     vec![]
                 } else {
-                    self.rounds.insert(
-                        from.clone(),
-                        (RoundPhase::Started(false)).context(self.gossip_type),
-                    );
+                    state
+                        .rounds
+                        .insert(from.clone(), RoundPhase::Started(false));
                     vec![
                         (from.clone(), RoundMsg::Accept),
-                        if self.gossip_type == GossipType::Recent {
+                        if self.gossip_type() == GossipType::Recent {
                             (from, RoundMsg::AgentDiff)
                         } else {
                             (from, RoundMsg::OpDiff)
@@ -111,18 +122,17 @@ impl Machine for PeerModel {
                 from,
                 msg: RoundMsg::Accept,
             } => {
-                if self.rounds.contains_key(&from) {
+                if state.rounds.contains_key(&from) {
                     tracing::error!("already a round for {from:?}");
                     vec![]
                     // bail!("already a round for {from:?}");
-                } else if self.initiate_tgt.as_ref().map(|t| &t.cert) != Some(&from) {
+                } else if state.initiate_tgt.as_ref().map(|t| &t.cert) != Some(&from) {
                     bail!("invalid Accept from node that is not initiate_tgt");
                 } else {
-                    self.rounds.insert(
-                        from.clone(),
-                        (RoundPhase::Started(false)).context(self.gossip_type),
-                    );
-                    if self.gossip_type == GossipType::Recent {
+                    state
+                        .rounds
+                        .insert(from.clone(), RoundPhase::Started(false));
+                    if self.gossip_type() == GossipType::Recent {
                         vec![(from, RoundMsg::AgentDiff)]
                     } else {
                         vec![(from, RoundMsg::OpDiff)]
@@ -133,22 +143,23 @@ impl Machine for PeerModel {
                 from,
                 msg: RoundMsg::Close,
             } => {
-                self.rounds.remove(&from);
+                state.rounds.remove(&from);
                 vec![]
             }
 
             action => {
                 let from = action.node_id();
                 if let Some(round_action) = action.into_round_action() {
-                    let (round, fx) = self
+                    let round = state
                         .rounds
                         .remove(&from)
-                        .ok_or(anyhow!("no round for {from:?}"))?
-                        .transition(round_action)?;
-                    if matches!(*round, RoundPhase::Finished) {
-                        self.finish_round(&from);
+                        .ok_or(anyhow!("no round for {from:?}"))?;
+
+                    let (round, fx) = self.0.transition(round, round_action)?;
+                    if matches!(round, RoundPhase::Finished) {
+                        state.finish_round(&from);
                     } else {
-                        self.rounds.insert(from.clone(), round);
+                        state.rounds.insert(from.clone(), round);
                     }
                     fx.into_iter().map(|msg| (from.clone(), msg)).collect()
                 } else {
@@ -156,7 +167,7 @@ impl Machine for PeerModel {
                 }
             }
         };
-        Ok((self, fx))
+        Ok((state, fx))
     }
 }
 
@@ -223,7 +234,7 @@ impl PeerProjection {
 
 impl Projection for PeerProjection {
     type System = ShardedGossipLocal;
-    type Model = PeerModel;
+    type Model = PeerMachine;
     type Event = ShardedGossipEvent;
 
     fn apply(&self, system: &mut Self::System, _: Self::Event) {
@@ -265,7 +276,7 @@ impl Projection for PeerProjection {
         }
     }
 
-    fn map_state(&mut self, system: &Self::System) -> Option<PeerModel> {
+    fn map_state(&mut self, system: &Self::System) -> Option<PeerState> {
         let state = system
             .inner
             .share_mut(|s, _| {
@@ -276,22 +287,19 @@ impl Projection for PeerProjection {
                     .map(|(k, mut v)| {
                         (
                             self.ids.lookup(k.clone()).unwrap(),
-                            super::round_model::map_state(v.clone())
-                                .unwrap()
-                                .context(system.gossip_type),
+                            super::round_model::map_state(v.clone()).unwrap(),
                         )
                     })
-                    .collect::<BTreeMap<NodeId, RoundFsm>>()
+                    .collect::<BTreeMap<NodeId, RoundPhase>>()
                     .into();
 
                 let initiate_tgt = s.initiate_tgt.as_ref().map(|t| Tgt {
                     cert: self.ids.lookup(t.cert.clone()).unwrap(),
                     tie_break: t.tie_break > (u32::MAX / 2),
                 });
-                Ok(PeerModel {
+                Ok(PeerState {
                     rounds,
                     initiate_tgt,
-                    gossip_type: system.gossip_type,
                 })
             })
             .unwrap();
@@ -302,7 +310,7 @@ impl Projection for PeerProjection {
         unimplemented!("generation not implemented")
     }
 
-    fn gen_state(&mut self, generator: &mut impl Generator, state: PeerModel) -> Self::System {
+    fn gen_state(&mut self, generator: &mut impl Generator, state: PeerState) -> Self::System {
         unimplemented!("generation not implemented")
     }
 }
@@ -335,8 +343,9 @@ mod tests {
             ignore_loopbacks: true,
         };
 
-        let model = PeerModel::new(GossipType::Recent);
+        let machine = PeerMachine::new(GossipType::Recent);
+        let state = PeerState::new();
 
-        println!("{}", to_dot(state_diagram(model, &config)));
+        println!("{}", to_dot(state_diagram(machine, state, &config)));
     }
 }

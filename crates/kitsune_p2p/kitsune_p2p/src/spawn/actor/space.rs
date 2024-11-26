@@ -12,6 +12,7 @@ use kitsune_p2p_types::dht_arc::{DhtArcRange, DhtArcSet};
 use kitsune_p2p_types::tx_utils::TxUrl;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicBool;
+use tx_utils::ProxyUrl;
 use url2::Url2;
 
 /// How often to record historical metrics
@@ -1410,8 +1411,8 @@ impl Space {
                 })
                 .map(|(module, factory)| {
                     let url = local_url.lock().unwrap().clone();
-                    let purl = kitsune_p2p_proxy::ProxyUrl::from_full(&url.unwrap()).unwrap();
-                    let cert = NodeCert::from(purl.digest().0);
+                    let purl = ProxyUrl::from_full(&url.unwrap()).unwrap();
+                    let cert = NodeCert::from(purl.digest().unwrap().0);
                     (
                         module,
                         factory.spawn_gossip_task(

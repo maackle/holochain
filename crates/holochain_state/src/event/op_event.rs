@@ -19,10 +19,17 @@ pub enum OpEvent {
     Fetched { op: DhtOp },
 
     /// The node has sys validated an op authored by someone else
-    SysValidated { op: DhtOpHash },
+    Validated {
+        op: DhtOpHash,
+        validation_type: ValidationType,
+    },
 
     /// The node has app validated an op authored by someone else
-    AppValidated { op: DhtOpHash },
+    AwaitingDeps {
+        op: DhtOpHash,
+        dep: DhtOpHash,
+        validation_type: ValidationType,
+    },
 
     /// The node has integrated an op authored by someone else
     Integrated { op: DhtOpHash },
@@ -56,21 +63,27 @@ impl OpEventStore {
                 OpEvent::Authored { op } => {
                     let op = op.into_hashed();
                     self.authored
-                        .write_async(move |txn| insert_op_when(txn, &op, timestamp))
+                        .write_async(move |txn| insert_op_when(txn, &op, None, timestamp))
                         .await?;
                 }
                 OpEvent::Fetched { op } => {
                     let op = op.into_hashed();
                     self.dht
-                        .write_async(move |txn| insert_op_when(txn, &op, timestamp))
+                        .write_async(move |txn| insert_op_when(txn, &op, None, timestamp))
                         .await?;
                 }
-                OpEvent::SysValidated { op: op_hash } => {
+                OpEvent::Validated {
+                    op: op_hash,
+                    validation_type: ValidationType::Sys,
+                } => {
                     self.dht
                         .write_async(move |txn| set_when_sys_validated(txn, &op_hash, timestamp))
                         .await?;
                 }
-                OpEvent::AppValidated { op: op_hash } => {
+                OpEvent::Validated {
+                    op: op_hash,
+                    validation_type: ValidationType::App,
+                } => {
                     self.dht
                         .write_async(move |txn| set_when_app_validated(txn, &op_hash, timestamp))
                         .await?;
@@ -87,6 +100,7 @@ impl OpEventStore {
                         })
                         .await?;
                 }
+                _ => unimplemented!(),
             },
         }
         Ok(())

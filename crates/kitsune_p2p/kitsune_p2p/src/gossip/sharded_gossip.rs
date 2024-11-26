@@ -41,7 +41,7 @@ use self::state_map::RoundStateMap;
 use self::store::AgentInfoSession;
 use crate::metrics::MetricsSync;
 
-use super::model::peer_model::PeerProjection;
+use super::model::peer_model::{PeerMachine, PeerProjection};
 use super::model::round_model::RoundAction;
 use super::{HowToConnect, MetaOpKey};
 
@@ -187,7 +187,9 @@ impl ShardedGossip {
                 )),
             };
 
-            let mut model = PEER_PROJECTION
+            let machine = PeerMachine::new(gossip_type);
+
+            let mut state = PEER_PROJECTION
                 .lock()
                 .map_state(&gossip)
                 .expect("POLESTAR model mapping failed");
@@ -211,8 +213,8 @@ impl ShardedGossip {
 
                     actions.push(action.clone());
 
-                    match model.clone().transition(action.clone()) {
-                        Ok((next, _fx)) => model = next,
+                    match machine.transition(state.clone(), action.clone()) {
+                        Ok((next, _fx)) => state = next,
                         Err(error) => {
                             eprintln!("");
                             eprintln!("");
@@ -225,7 +227,7 @@ impl ShardedGossip {
                             eprintln!("Cert: {:?}", local_cert);
                             eprintln!("Id: {:?}", id);
                             eprintln!("");
-                            eprintln!("Last model state: {:#?}", model);
+                            eprintln!("Last model state: {:#?}", state);
                             eprintln!("");
                             eprintln!("All actions (last one failed): {:#?}", actions);
                             eprintln!("");
@@ -242,7 +244,7 @@ impl ShardedGossip {
                         }
                     }
 
-                    tracing::info!(" - model: {model:?}");
+                    tracing::info!(" - model: {state:?}");
                 }
             });
 

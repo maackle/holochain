@@ -1,6 +1,6 @@
 #![allow(missing_docs, unused)]
 
-use polestar::id::Id;
+use polestar::id::IdU8;
 
 pub mod gossip_model;
 pub mod peer_model;
@@ -10,4 +10,4 @@ pub mod round_model;
 mod scenarios;
 
 const PEERS: usize = 3;
-pub type NodeId = Id<PEERS>;
+pub type NodeId = IdU8<PEERS>;

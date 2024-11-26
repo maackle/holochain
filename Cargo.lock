@@ -2844,7 +2844,7 @@ version = "0.5.0-dev.4"
 dependencies = [
  "anyhow",
  "chrono",
- "clap 4.5.20",
+ "clap 4.5.21",
  "crossterm",
  "holo_hash",
  "holochain_conductor_api",
@@ -5975,6 +5975,7 @@ dependencies = [
  "prettydiff",
  "proptest",
  "proptest-derive 0.5.0",
+ "rustversion",
  "tracing",
  "tracing-subscriber",
 ]
@@ -8702,7 +8703,7 @@ version = "0.0.9-alpha"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a24b13f9032042ef2c30647998ba21882dbf411435071b6fe587a2c1e0992b28"
 dependencies = [
- "clap 4.5.20",
+ "clap 4.5.21",
  "dirs",
  "futures",
  "if-addrs 0.10.2",
