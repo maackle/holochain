@@ -67,6 +67,7 @@ impl EventData {
                 OpEvent::Sent { op } => op.as_ref(),
                 OpEvent::Validated { kind: _, op } => op.as_ref(),
                 OpEvent::Integrated { op } => op.as_ref(),
+                OpEvent::Rejected { op } => op.as_ref(),
                 OpEvent::ReceivedValidationReceipt { receipt } => receipt
                     .validators_signatures
                     .first()

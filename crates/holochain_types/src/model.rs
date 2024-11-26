@@ -24,6 +24,9 @@ pub enum OpEvent {
     /// The node has sys validated an op authored by someone else
     Validated { op: DhtOpHash, kind: ValidationType },
 
+    /// The node has rejected an op
+    Rejected { op: DhtOpHash },
+
     /// The node has app validated an op authored by someone else
     AwaitingDeps {
         op: DhtOpHash,

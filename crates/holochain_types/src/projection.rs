@@ -60,7 +60,7 @@ pub struct OpEventMapping {
 }
 
 type SystemEvent = (NodeTag, OpEvent);
-type ModelAction = <OpNetworkMachine<u8, usize> as polestar::Machine>::Action;
+type ModelAction = <OpNetworkMachine<u8, usize, u8> as polestar::Machine>::Action;
 
 impl OpEventMapping {
     pub fn node_id(&mut self, tag: NodeTag) -> NodeId {
@@ -99,6 +99,8 @@ impl OpEventMapping {
     }
 
     pub fn map_event(&mut self, (node, event): (NodeTag, OpEvent)) -> Option<ModelAction> {
+        dbg!((&node, &event));
+
         let action = match event {
             OpEvent::Authored { op, action, entry } => {
                 let action_hash = action.clone();
@@ -108,9 +110,9 @@ impl OpEventMapping {
                         .insert(entry_hash.clone(), action_hash.clone());
                 }
 
-                OpNetworkAction::Family {
-                    target: self.action_id(&action_hash),
-                    action: OpAction::Store.into(),
+                OpNetworkAction::Local {
+                    op: self.action_id(&action_hash),
+                    action: OpAction::Store(true).into(),
                 }
             }
             OpEvent::Sent { op } => {
@@ -126,16 +128,20 @@ impl OpEventMapping {
                     valid: true,
                 }
             }
-            OpEvent::AwaitingDeps { op, dep, kind } => OpNetworkAction::Family {
-                target: self.op_id(&op),
+            OpEvent::AwaitingDeps { op, dep, kind } => OpNetworkAction::Local {
+                op: self.op_id(&op),
                 action: OpFamilyAction::Await(map_vt(kind), self.anydht_id(&dep)),
             },
-            OpEvent::Validated { op, kind } => OpNetworkAction::Family {
-                target: self.op_id(&op),
+            OpEvent::Validated { op, kind } => OpNetworkAction::Local {
+                op: self.op_id(&op),
                 action: OpAction::Validate(map_vt(kind)).into(),
             },
-            OpEvent::Integrated { op } => OpNetworkAction::Family {
-                target: self.op_id(&op),
+            OpEvent::Rejected { op } => OpNetworkAction::Local {
+                op: self.op_id(&op),
+                action: OpAction::Reject.into(),
+            },
+            OpEvent::Integrated { op } => OpNetworkAction::Local {
+                op: self.op_id(&op),
                 action: OpAction::Integrate.into(),
             },
             OpEvent::ReceivedValidationReceipt { receipt: _ } => return None,

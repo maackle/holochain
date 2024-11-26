@@ -362,6 +362,7 @@ async fn sys_validation_workflow_inner(
                         summary.missing += 1;
                         let status = ValidationStage::AwaitingSysDeps;
                         put_validation_limbo(txn, &op_hash, status)?;
+
                         holochain_types::projection::write_op_event(
                             &tag,
                             OpEvent::AwaitingDeps {
@@ -371,6 +372,7 @@ async fn sys_validation_workflow_inner(
                                 kind: ValidationType::Sys,
                             },
                         );
+                        dbg!("sys val await");
                     }
                     Outcome::Rejected(_) => {
                         invalid_ops.push((op_hash.clone(), op.clone()));
@@ -381,6 +383,13 @@ async fn sys_validation_workflow_inner(
                         } else {
                             put_integration_limbo(txn, &op_hash, ValidationStatus::Rejected)?;
                         }
+
+                        holochain_types::projection::write_op_event(
+                            &tag,
+                            OpEvent::Rejected {
+                                op: op_hash.clone(),
+                            },
+                        );
                     }
                 }
             }
