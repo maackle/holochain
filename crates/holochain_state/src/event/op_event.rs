@@ -6,6 +6,8 @@
 //! The database state pertaining to DhtOps can be streamed out as a list of `OpEvent`s,
 //! and that same state can be recreated by applying a list of `OpEvent`s.
 
+use kitsune_p2p::NodeCert;
+
 use crate::{prelude::*, query::map_sql_dht_op};
 
 use super::{Event, EventData, EventResult};
@@ -16,7 +18,9 @@ pub enum OpEvent {
     Authored { op: DhtOp },
 
     /// The node has fetched this op from another node via the FetchPool
-    Fetched { op: DhtOp },
+    /// The Option is because Holochain does not currently store the origin of
+    /// an op in the database, but once it does, this can be non-optional.
+    Fetched { op: DhtOp, from: Option<NodeCert> },
 
     /// The node has sys validated an op authored by someone else
     Validated { op: DhtOpHash, kind: ValidationType },
@@ -63,7 +67,7 @@ impl OpEventStore {
                         .write_async(move |txn| insert_op_when(txn, &op, None, timestamp))
                         .await?;
                 }
-                OpEvent::Fetched { op } => {
+                OpEvent::Fetched { op, from: _ } => {
                     let op = op.into_hashed();
                     self.dht
                         .write_async(move |txn| insert_op_when(txn, &op, None, timestamp))
@@ -189,7 +193,7 @@ impl OpEventStore {
                         let op_hash = op.to_hash();
 
                         // The existence of an op implies the Fetched event
-                        events.push(Event::new(timestamp, OpEvent::Fetched { op }));
+                        events.push(Event::new(timestamp, OpEvent::Fetched { op, from: None }));
 
                         // The existence of a when_sys_validated timestamp
                         // implies the SysValidated event
@@ -303,9 +307,18 @@ mod tests {
         // Setup store 2
 
         let events_2 = btreeset![
-            Event::now(Fetched { op: ops[0].clone() }),
-            Event::now(Fetched { op: ops[1].clone() }),
-            Event::now(Fetched { op: ops[2].clone() }),
+            Event::now(Fetched {
+                op: ops[0].clone(),
+                from: None
+            }),
+            Event::now(Fetched {
+                op: ops[1].clone(),
+                from: None
+            }),
+            Event::now(Fetched {
+                op: ops[2].clone(),
+                from: None
+            }),
             // op 0 is integrated
             Event::now(Validated {
                 kind: ValidationType::Sys,

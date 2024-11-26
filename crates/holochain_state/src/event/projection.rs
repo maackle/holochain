@@ -40,9 +40,9 @@ impl OpEventMapping {
                 target: self.op_id(op.to_hash()),
                 action: OpAction::Store.into(),
             },
-            OpEvent::Fetched { op } => OpNetworkAction::Receive {
+            OpEvent::Fetched { op, from } => OpNetworkAction::Receive {
                 op: self.op_id(op.to_hash()),
-                from: self.node_id(todo!("get cert from fetch pool?")),
+                from: self.node_id(from.expect("OpEvent::Fetched must specify `from` cert")),
                 valid: true,
             },
             OpEvent::AwaitingDeps { op, dep, kind } => OpNetworkAction::Family {
