@@ -1069,6 +1069,45 @@ pub fn get_public_op_from_db(
     }
 }
 
+pub fn get_op_from_db(
+    txn: &Transaction,
+    op_hash: &DhtOpHash,
+) -> StateQueryResult<Option<DhtOpHashed>> {
+    let sql = "
+    SELECT
+  DhtOp.hash,
+  DhtOp.type,
+  Action.blob AS action_blob,
+  Action.author AS author,
+  Entry.blob AS entry_blob
+FROM
+  DhtOp
+  JOIN Action ON DhtOp.action_hash = Action.hash
+  LEFT JOIN Entry ON Action.entry_hash = Entry.hash
+WHERE
+  DhtOp.hash = :hash
+    ";
+    let result = txn.query_row_and_then(
+        sql,
+        named_params! {
+            ":hash": op_hash,
+        },
+        |row| {
+            let hash: DhtOpHash = row.get("hash")?;
+            let op_hashed = map_sql_dht_op_common(false, false, "type", row)?
+                .map(|op| DhtOpHashed::with_pre_hashed(op, hash));
+            StateQueryResult::Ok(op_hashed)
+        },
+    );
+    match result {
+        Err(StateQueryError::Sql(holochain_sqlite::rusqlite::Error::QueryReturnedNoRows)) => {
+            Ok(None)
+        }
+        Err(e) => Err(e),
+        Ok(result) => Ok(result),
+    }
+}
+
 pub fn map_sql_dht_op(
     include_private_entries: bool,
     type_fieldname: &str,

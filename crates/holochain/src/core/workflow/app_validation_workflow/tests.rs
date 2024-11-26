@@ -23,7 +23,7 @@ use holochain_state::test_utils::test_db_dir;
 use holochain_state::validation_db::ValidationStage;
 use holochain_types::dht_op::DhtOpHashed;
 use holochain_types::inline_zome::InlineZomeSet;
-use holochain_types::prelude::*;
+use holochain_types::{prelude::*, ConductorStateTag};
 use holochain_wasm_test_utils::{TestWasm, TestWasmPair, TestZomes};
 use holochain_zome_types::fixt::{CreateFixturator, DeleteFixturator, SignatureFixturator};
 use holochain_zome_types::timestamp::Timestamp;
@@ -126,13 +126,17 @@ async fn main_workflow() {
             .len();
     assert_eq!(ops_to_validate, 1);
 
+    let tag = ConductorStateTag::default();
+
     // run validation workflow
     // outcome should be incomplete - delete op is missing the dependent create op
     let outcome_summary = app_validation_workflow_inner(
         Arc::new(dna_hash.clone()),
         app_validation_workspace.clone(),
         conductor.raw_handle(),
-        &conductor.holochain_p2p().to_dna(dna_hash.clone(), None),
+        &conductor
+            .holochain_p2p()
+            .to_dna(dna_hash.clone(), None, tag.clone()),
         conductor
             .get_or_create_space(&dna_hash)
             .unwrap()
@@ -173,7 +177,9 @@ async fn main_workflow() {
         Arc::new(dna_hash.clone()),
         app_validation_workspace.clone(),
         conductor.raw_handle(),
-        &conductor.holochain_p2p().to_dna(dna_hash.clone(), None),
+        &conductor
+            .holochain_p2p()
+            .to_dna(dna_hash.clone(), None, tag),
         conductor
             .get_or_create_space(&dna_hash)
             .unwrap()
@@ -210,6 +216,8 @@ async fn validate_ops_in_sequence_must_get_agent_activity() {
     holochain_trace::test_run();
 
     let agent = fixt!(AgentPubKey);
+
+    let tag = ConductorStateTag::default();
 
     // create op that following delete op depends on
     let create = Create {
@@ -324,7 +332,9 @@ async fn validate_ops_in_sequence_must_get_agent_activity() {
         Arc::new(dna_hash.clone()),
         app_validation_workspace.clone(),
         conductor.raw_handle(),
-        &conductor.holochain_p2p().to_dna(dna_hash.clone(), None),
+        &conductor
+            .holochain_p2p()
+            .to_dna(dna_hash.clone(), None, tag),
         conductor
             .get_or_create_space(&dna_hash)
             .unwrap()
@@ -364,6 +374,7 @@ async fn validate_ops_in_sequence_must_get_agent_activity() {
 async fn validate_ops_in_sequence_must_get_action() {
     holochain_trace::test_run();
 
+    let tag = ConductorStateTag::default();
     let entry_def = EntryDef::default_from_id("entry_def_id");
     let zomes = SweetInlineZomes::new(vec![entry_def.clone()], 0).integrity_function(
         "validate",
@@ -463,7 +474,9 @@ async fn validate_ops_in_sequence_must_get_action() {
         Arc::new(dna_hash.clone()),
         app_validation_workspace.clone(),
         conductor.raw_handle(),
-        &conductor.holochain_p2p().to_dna(dna_hash.clone(), None),
+        &conductor
+            .holochain_p2p()
+            .to_dna(dna_hash.clone(), None, tag),
         conductor
             .get_or_create_space(&dna_hash)
             .unwrap()
@@ -548,6 +561,7 @@ async fn multi_create_link_validation() {
 async fn handle_error_in_op_validation() {
     holochain_trace::test_run();
 
+    let tag = ConductorStateTag::default();
     let entry_def = EntryDef::default_from_id("entry_def_id");
     let zomes = SweetInlineZomes::new(vec![entry_def], 0).integrity_function(
         "validate",
@@ -624,7 +638,9 @@ async fn handle_error_in_op_validation() {
         Arc::new(dna_hash.clone()),
         app_validation_workspace.clone(),
         conductor.raw_handle(),
-        &conductor.holochain_p2p().to_dna(dna_hash.clone(), None),
+        &conductor
+            .holochain_p2p()
+            .to_dna(dna_hash.clone(), None, tag),
         conductor
             .get_or_create_space(&dna_hash)
             .unwrap()

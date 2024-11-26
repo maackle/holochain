@@ -2861,11 +2861,17 @@ mod scheduler_impls {
 mod misc_impls {
     use std::sync::atomic::Ordering;
 
+    use holochain_types::ConductorStateTag;
     use holochain_zome_types::action::builder;
 
     use super::*;
 
     impl Conductor {
+        /// Get the unique tag for the conductor
+        pub async fn tag(&self) -> ConductorResult<ConductorStateTag> {
+            Ok(self.get_state().await?.tag().clone())
+        }
+
         /// Grant a zome call capability for a cell
         pub async fn grant_zome_call_capability(
             &self,
@@ -3602,12 +3608,17 @@ impl Conductor {
             .running_cells
             .share_ref(|c| c.keys().cloned().collect());
 
+        let tag = self.tag().await.unwrap();
+
         let tasks = app_cells.difference(&on_cells).map(|cell_id| {
             let handle = self.clone();
             let chc = handle.get_chc(cell_id);
+            let tag = tag.clone();
             async move {
                 let holochain_p2p_cell =
-                    handle.holochain_p2p.to_dna(cell_id.dna_hash().clone(), chc);
+                    handle
+                        .holochain_p2p
+                        .to_dna(cell_id.dna_hash().clone(), chc, tag);
 
                 let space = handle
                     .get_or_create_space(cell_id.dna_hash())

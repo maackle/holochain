@@ -214,7 +214,8 @@ fixturator!(
             let holochain_p2p = crate::test::stub_network().await;
             holochain_p2p.to_dna(
                 DnaHashFixturator::new(Empty).next().unwrap(),
-                None
+                None,
+                ConductorStateTag("FIXTURATED".into()),
             )
         })
     };
@@ -271,7 +272,7 @@ mod tests {
         let keystore = test_keystore();
         let (signal_url, _signal_srv_handle) = kitsune_p2p::test_util::start_signal_srv().await;
 
-        let (p2p, mut evt) = spawn_holochain_p2p(
+        let (p2p, mut evt, _) = spawn_holochain_p2p(
             KitsuneP2pConfig::from_signal_addr(signal_url),
             TlsConfig::new_ephemeral().await.unwrap(),
             kitsune_p2p::HostStub::new(),
@@ -355,7 +356,7 @@ mod tests {
         let (dna, a1, a2, _) = test_setup();
         let (signal_url, _signal_srv_handle) = kitsune_p2p::test_util::start_signal_srv().await;
 
-        let (p2p, mut evt): (HolochainP2pRef, _) = spawn_holochain_p2p(
+        let (p2p, mut evt, _): (HolochainP2pRef, _, _) = spawn_holochain_p2p(
             KitsuneP2pConfig::from_signal_addr(signal_url),
             TlsConfig::new_ephemeral().await.unwrap(),
             kitsune_p2p::HostStub::new(),
@@ -437,7 +438,7 @@ mod tests {
         };
         //let test_host = TestHost::default();
 
-        let (p2p, mut evt) = spawn_holochain_p2p(
+        let (p2p, mut evt, _) = spawn_holochain_p2p(
             config,
             TlsConfig::new_ephemeral().await.unwrap(),
             test_host,
@@ -525,7 +526,7 @@ mod tests {
         params.default_rpc_multi_remote_request_grace_ms = 100;
         let mut config = KitsuneP2pConfig::from_signal_addr(signal_url);
         config.tuning_params = Arc::new(params);
-        let (p2p, mut evt) = spawn_holochain_p2p(
+        let (p2p, mut evt, _) = spawn_holochain_p2p(
             config,
             cert,
             kitsune_p2p::HostStub::new(),
@@ -631,7 +632,7 @@ mod tests {
         let mut config = KitsuneP2pConfig::from_signal_addr(signal_url);
         config.tuning_params = Arc::new(params);
 
-        let (p2p, mut evt) = spawn_holochain_p2p(
+        let (p2p, mut evt, _) = spawn_holochain_p2p(
             config,
             TlsConfig::new_ephemeral().await.unwrap(),
             kitsune_p2p::HostStub::new(),

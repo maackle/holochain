@@ -39,6 +39,7 @@ use holochain_types::db_cache::DhtDbQueryCache;
 use holochain_types::prelude::*;
 use holochain_types::test_utils::fake_dna_file;
 use holochain_types::test_utils::fake_dna_zomes;
+use holochain_types::ConductorStateTag;
 use holochain_wasm_test_utils::TestWasm;
 use kitsune_p2p_types::config::KitsuneP2pConfig;
 use kitsune_p2p_types::ok_fut;
@@ -250,7 +251,7 @@ where
         }))
     };
 
-    let (network, mut recv) = spawn_holochain_p2p(
+    let (network, mut recv, _) = spawn_holochain_p2p(
         config,
         holochain_p2p::kitsune_p2p::dependencies::kitsune_p2p_types::tls::TlsConfig::new_ephemeral(
         )
@@ -302,7 +303,7 @@ where
     let dna = dna_hash.unwrap_or_else(|| fixt!(DnaHash));
     let mut key_fixt = AgentPubKeyFixturator::new(Predictable);
     let agent_key = agent_key.unwrap_or_else(|| key_fixt.next().unwrap());
-    let dna_network = network.to_dna(dna.clone(), None);
+    let dna_network = network.to_dna(dna.clone(), None, ConductorStateTag("asbawevbas".into()));
     network
         .join(dna.clone(), agent_key, None, None)
         .await

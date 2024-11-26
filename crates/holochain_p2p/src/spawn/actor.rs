@@ -11,6 +11,7 @@ use kitsune_p2p::event::*;
 use kitsune_p2p::gossip::sharded_gossip::KitsuneDiagnostics;
 use kitsune_p2p::KOp;
 use kitsune_p2p::KitsuneOpData;
+use kitsune_p2p::NodeCert;
 use kitsune_p2p::PreflightUserData;
 use kitsune_p2p_fetch::FetchContext;
 
@@ -364,6 +365,7 @@ pub(crate) struct HolochainP2pActor {
     evt_sender: WrapEvtSender,
     kitsune_p2p: ghost_actor::GhostSender<kitsune_p2p::actor::KitsuneP2p>,
     host: kitsune_p2p::HostApi,
+    local_cert: Option<kitsune_p2p::NodeCert>,
 }
 
 impl ghost_actor::GhostControlHandler for HolochainP2pActor {
@@ -418,7 +420,7 @@ impl HolochainP2pActor {
             }),
         };
 
-        let (kitsune_p2p, kitsune_p2p_events) = kitsune_p2p::spawn_kitsune_p2p(
+        let (kitsune_p2p, kitsune_p2p_events, local_cert) = kitsune_p2p::spawn_kitsune_p2p(
             config.clone(),
             tls_config,
             host.clone(),
@@ -433,6 +435,7 @@ impl HolochainP2pActor {
             evt_sender: WrapEvtSender(evt_sender),
             kitsune_p2p,
             host,
+            local_cert,
         })
     }
 
@@ -659,6 +662,10 @@ impl HolochainP2pActor {
         }
         .boxed()
         .into())
+    }
+
+    pub(crate) fn local_cert(&self) -> Option<NodeCert> {
+        self.local_cert.clone()
     }
 }
 

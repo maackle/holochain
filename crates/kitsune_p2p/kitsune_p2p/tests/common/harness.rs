@@ -91,7 +91,7 @@ impl KitsuneTestHarness {
         let mut config = self.config.clone();
         config.tracing_scope = Some(name);
 
-        let (sender, receiver) = spawn_kitsune_p2p(
+        let (sender, receiver, _) = spawn_kitsune_p2p(
             config,
             self.tls_config.clone(),
             self.host_api.clone(),

@@ -4,6 +4,7 @@ use crate::HostApi;
 use crate::HostApiLegacy;
 use actor::create_meta_net;
 use actor::KitsuneP2pActor;
+use kitsune_p2p_bin_data::NodeCert;
 use kitsune_p2p_types::config::KitsuneP2pConfig;
 
 mod actor;
@@ -25,6 +26,7 @@ pub async fn spawn_kitsune_p2p(
 ) -> KitsuneP2pResult<(
     ghost_actor::GhostSender<KitsuneP2p>,
     KitsuneP2pEventReceiver,
+    Option<NodeCert>,
 )> {
     #[cfg(not(feature = "unstable-sharding"))]
     if config.tuning_params.arc_clamping().is_none() {
@@ -67,6 +69,11 @@ pub async fn spawn_kitsune_p2p(
     )
     .await?;
 
+    let local_cert = maybe_peer_url.as_ref().map(|url| {
+        let purl = kitsune_p2p_types::tx_utils::ProxyUrl::from_full(url).unwrap();
+        NodeCert::from(purl.digest().unwrap().0)
+    });
+
     tokio::task::spawn(
         builder.spawn(
             KitsuneP2pActor::new(
@@ -84,5 +91,5 @@ pub async fn spawn_kitsune_p2p(
         ),
     );
 
-    Ok((sender, evt_recv))
+    Ok((sender, evt_recv, local_cert))
 }

@@ -6,6 +6,7 @@ use crate::chain_lock::{get_chain_lock, ChainLock};
 use crate::integrate::authored_ops_to_dht_db;
 use crate::integrate::authored_ops_to_dht_db_without_check;
 use crate::query::chain_head::ChainHeadQuery;
+use crate::query::get_op_from_db;
 use crate::scratch::ScratchError;
 use crate::scratch::SyncScratchError;
 use async_recursion::async_recursion;
@@ -241,6 +242,7 @@ impl SourceChain {
         &self,
         network: &(dyn HolochainP2pDnaT + Send + Sync),
     ) -> SourceChainResult<Vec<SignedActionHashed>> {
+        let tag = network.tag();
         // Nothing to write
         if self.scratch.apply(|s| s.is_empty())? {
             return Ok(Vec::new());
@@ -388,6 +390,13 @@ impl SourceChain {
                 }
                 for (op, op_hash, op_order, timestamp, _dep) in &ops {
                     insert_op_lite_into_authored(txn, op, op_hash, op_order, timestamp)?;
+
+                    {
+                        // Query the op we just inserted
+                        let op = get_op_from_db(txn, op_hash)?.unwrap();
+                        write_op_event(&tag, OpEvent::authored(op.into_content()))
+                    }
+
                     // If this is a countersigning session we want to withhold
                     // publishing the ops until the session is successful.
                     if is_countersigning_session {

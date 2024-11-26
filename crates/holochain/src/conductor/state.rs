@@ -8,6 +8,7 @@ use holochain_conductor_services::DPKI_APP_ID;
 use holochain_p2p::NetworkCompatParams;
 use holochain_types::prelude::*;
 use holochain_types::websocket::AllowedOrigins;
+use holochain_types::ConductorStateTag;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -15,18 +16,6 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use super::error::{ConductorError, ConductorResult};
-
-/// Unique conductor tag / identifier.
-#[derive(Clone, Deserialize, Serialize, Debug, SerializedBytes)]
-#[cfg_attr(test, derive(PartialEq))]
-#[serde(transparent)]
-pub struct ConductorStateTag(pub Arc<str>);
-
-impl Default for ConductorStateTag {
-    fn default() -> Self {
-        Self(nanoid::nanoid!().into())
-    }
-}
 
 /// Info required to re-initialize conductor services upon restart
 #[derive(Clone, PartialEq, Eq, Deserialize, Serialize, Default, Debug, SerializedBytes)]

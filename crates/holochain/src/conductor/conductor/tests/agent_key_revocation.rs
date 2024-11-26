@@ -403,11 +403,11 @@ mod single_conductor {
         .unwrap();
         source_chain_1.delete_valid_agent_pub_key().await.unwrap();
         source_chain_1
-            .flush(
-                &conductor
-                    .holochain_p2p()
-                    .to_dna(cell_id_1.dna_hash().clone(), conductor.get_chc(&cell_id_1)),
-            )
+            .flush(&conductor.holochain_p2p().to_dna(
+                cell_id_1.dna_hash().clone(),
+                conductor.get_chc(&cell_id_1),
+                conductor.tag().await.unwrap(),
+            ))
             .await
             .unwrap();
 

@@ -262,7 +262,7 @@ impl ConductorBuilder {
             .map(|dna| dna.dna_hash().get_raw_32().try_into().expect("32 bytes"));
         let network_compat = NetworkCompatParams { dpki_uuid };
 
-        let (holochain_p2p, p2p_evt) = match holochain_p2p::spawn_holochain_p2p(
+        let (holochain_p2p, p2p_evt, local_cert) = match holochain_p2p::spawn_holochain_p2p(
             network_config,
             tls_config,
             host,
@@ -538,7 +538,7 @@ impl ConductorBuilder {
 
         let network_compat = NetworkCompatParams { dpki_uuid };
 
-        let (holochain_p2p, p2p_evt) =
+        let (holochain_p2p, p2p_evt, local_cert) =
                 holochain_p2p::spawn_holochain_p2p(network_config, holochain_p2p::kitsune_p2p::dependencies::kitsune_p2p_types::tls::TlsConfig::new_ephemeral().await.unwrap(), host, network_compat)
                     .await?;
 

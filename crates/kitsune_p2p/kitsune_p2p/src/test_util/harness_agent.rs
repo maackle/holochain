@@ -75,7 +75,7 @@ pub(crate) async fn spawn_test_agent(
 > {
     let topology = Topology::standard_epoch_full();
     let host = HarnessHost::new();
-    let (p2p, evt) = spawn_kitsune_p2p(
+    let (p2p, evt, _) = spawn_kitsune_p2p(
         config,
         kitsune_p2p_types::tls::TlsConfig::new_ephemeral()
             .await

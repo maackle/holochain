@@ -357,7 +357,7 @@ fn into_chunks(hashes: Vec<KOpHash>, complete: u8) -> ShardedGossipWire {
     }
 
     assert_eq!(gossip.len(), 1);
-    return gossip.pop().unwrap();
+    gossip.pop().unwrap()
 }
 
 impl OpsBatchQueue {

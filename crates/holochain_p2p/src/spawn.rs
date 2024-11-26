@@ -3,6 +3,7 @@ use crate::event::*;
 
 mod actor;
 use actor::*;
+use kitsune_p2p::NodeCert;
 
 /// Spawn a new HolochainP2p actor.
 /// Conductor will call this on initialization.
@@ -14,6 +15,7 @@ pub async fn spawn_holochain_p2p(
 ) -> HolochainP2pResult<(
     ghost_actor::GhostSender<HolochainP2p>,
     HolochainP2pEventReceiver,
+    Option<NodeCert>,
 )> {
     let (evt_send, evt_recv) = futures::channel::mpsc::channel(10);
 
@@ -23,11 +25,12 @@ pub async fn spawn_holochain_p2p(
 
     let sender = channel_factory.create_channel::<HolochainP2p>().await?;
 
-    tokio::task::spawn(builder.spawn(
-        HolochainP2pActor::new(config, tls_config, channel_factory, evt_send, host, compat).await?,
-    ));
+    let hcp2p =
+        HolochainP2pActor::new(config, tls_config, channel_factory, evt_send, host, compat).await?;
+    let local_cert = hcp2p.local_cert();
+    tokio::task::spawn(builder.spawn(hcp2p));
 
-    Ok((sender, evt_recv))
+    Ok((sender, evt_recv, local_cert))
 }
 
 /// Some parameters used as part of a protocol compability check during tx5 preflight

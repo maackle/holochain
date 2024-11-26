@@ -3152,6 +3152,7 @@ dependencies = [
  "polestar",
  "proptest",
  "proptest-derive 0.4.0",
+ "serde",
 ]
 
 [[package]]

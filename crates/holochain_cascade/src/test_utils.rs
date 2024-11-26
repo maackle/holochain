@@ -19,6 +19,7 @@ use holochain_state::prelude::*;
 use holochain_types::test_utils::chain::chain_to_ops;
 use holochain_types::test_utils::chain::entry_hash;
 use holochain_types::test_utils::chain::TestChainItem;
+use holochain_types::ConductorStateTag;
 use kitsune_p2p::agent_store::AgentInfoSigned;
 use kitsune_p2p::dependencies::kitsune_p2p_fetch::OpHashSized;
 use kitsune_p2p::dht::Arq;
@@ -274,6 +275,10 @@ impl HolochainP2pDnaT for PassThroughNetwork {
 
     fn chc(&self) -> Option<ChcImpl> {
         None
+    }
+
+    fn tag(&self) -> ConductorStateTag {
+        ConductorStateTag("aosid98ion".into())
     }
 }
 

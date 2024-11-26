@@ -79,3 +79,28 @@ macro_rules! deepkey_roundtrip_forward(
         v
     }}
 );
+
+use holochain_serialized_bytes::prelude::*;
+
+/// Unique conductor tag / identifier.
+#[derive(
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Deserialize,
+    Serialize,
+    Debug,
+    SerializedBytes,
+    derive_more::Deref,
+)]
+#[serde(transparent)]
+pub struct ConductorStateTag(pub std::sync::Arc<str>);
+
+impl Default for ConductorStateTag {
+    fn default() -> Self {
+        Self(nanoid::nanoid!().into())
+    }
+}

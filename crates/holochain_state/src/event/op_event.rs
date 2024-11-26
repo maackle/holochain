@@ -6,7 +6,7 @@
 //! The database state pertaining to DhtOps can be streamed out as a list of `OpEvent`s,
 //! and that same state can be recreated by applying a list of `OpEvent`s.
 
-use kitsune_p2p::NodeCert;
+use std::sync::Arc;
 
 use crate::{prelude::*, query::map_sql_dht_op};
 
@@ -15,12 +15,16 @@ use super::{Event, EventData, EventResult};
 #[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum OpEvent {
     /// The node has authored this op, including validation and integration
-    Authored { op: DhtOp },
+    Authored {
+        op: DhtOp,
+        action: ActionHash,
+        entry: Option<EntryHash>,
+    },
 
     /// The node has fetched this op from another node via the FetchPool
     /// The Option is because Holochain does not currently store the origin of
     /// an op in the database, but once it does, this can be non-optional.
-    Fetched { op: DhtOp, from: Option<NodeCert> },
+    Fetched { op: DhtOp, from: Option<NodeTag> },
 
     /// The node has sys validated an op authored by someone else
     Validated { op: DhtOpHash, kind: ValidationType },
@@ -28,7 +32,7 @@ pub enum OpEvent {
     /// The node has app validated an op authored by someone else
     AwaitingDeps {
         op: DhtOpHash,
-        dep: DhtOpHash,
+        dep: AnyDhtHash,
         kind: ValidationType,
     },
 
@@ -39,6 +43,21 @@ pub enum OpEvent {
     /// agent for op it authored
     ReceivedValidationReceipt { receipt: SignedValidationReceipt },
 }
+
+impl OpEvent {
+    pub fn authored(op: DhtOp) -> Self {
+        let action = op.as_chain_op().expect("warrants not handled yet").action();
+        let action_hash = action.to_hash();
+        let entry_hash = action.entry_data().map(first).cloned();
+        Self::Authored {
+            op,
+            action: action_hash,
+            entry: entry_hash,
+        }
+    }
+}
+
+pub type NodeTag = String;
 
 #[derive(derive_more::Constructor)]
 pub struct OpEventStore {
@@ -61,7 +80,7 @@ impl OpEventStore {
         let timestamp = event.timestamp;
         match event.data {
             EventData::Op(event) => match event {
-                OpEvent::Authored { op } => {
+                OpEvent::Authored { op, .. } => {
                     let op = op.into_hashed();
                     self.authored
                         .write_async(move |txn| insert_op_when(txn, &op, None, timestamp))
@@ -152,7 +171,7 @@ impl OpEventStore {
                         let op = map_sql_dht_op(true, "dht_type", row)?;
 
                         // The existence of an op implies the Authored event
-                        events.push(Event::new(timestamp, OpEvent::Authored { op }));
+                        events.push(Event::new(timestamp, OpEvent::authored(op)));
 
                         // More events to come:
                         // - [ ] Published
@@ -295,9 +314,9 @@ mod tests {
         // Setup store 1
 
         let events_1 = btreeset![
-            Event::now(Authored { op: ops[0].clone() }),
-            Event::now(Authored { op: ops[1].clone() }),
-            Event::now(Authored { op: ops[2].clone() }),
+            Event::now(OpEvent::authored(ops[0].clone())),
+            Event::now(OpEvent::authored(ops[1].clone())),
+            Event::now(OpEvent::authored(ops[2].clone())),
             Event::now(ReceivedValidationReceipt { receipt }),
         ];
         let mut store_1 = OpEventStore::new_test(cell_id_1);

@@ -71,6 +71,7 @@ impl Conductor {
         agent_key: AgentPubKey,
         app_id: InstalledAppId,
     ) -> ConductorResult<RevokeAgentKeyForAppResult> {
+        let tag = conductor.tag().await.unwrap();
         // If DPKI service is installed, revoke agent key there first
         if let Some(dpki_service) = conductor.running_services().dpki {
             let dpki_state = dpki_service.state().await;
@@ -124,6 +125,7 @@ impl Conductor {
         let delete_agent_key_of_all_cells = all_cells.clone().into_iter().map(|cell_id| {
             let conductor = conductor.clone();
             let agent_key = agent_key.clone();
+            let tag = tag.clone();
             async move {
                 // Instantiate source chain
                 let source_chain = SourceChain::new(
@@ -139,9 +141,11 @@ impl Conductor {
 
                 // Insert `Delete` action of agent pub key into source chain
                 source_chain.delete_valid_agent_pub_key().await?;
-                let network = conductor
-                    .holochain_p2p
-                    .to_dna(cell_id.dna_hash().clone(), conductor.get_chc(&cell_id));
+                let network = conductor.holochain_p2p.to_dna(
+                    cell_id.dna_hash().clone(),
+                    conductor.get_chc(&cell_id),
+                    tag,
+                );
                 source_chain.flush(&network).await?;
 
                 Ok::<_, ConductorApiError>(())

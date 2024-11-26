@@ -5,6 +5,7 @@ use holo_hash::*;
 use holochain_chc::ChcImpl;
 use holochain_serialized_bytes::prelude::*;
 use holochain_types::prelude::*;
+use holochain_types::ConductorStateTag;
 use kitsune_p2p::dependencies::kitsune_p2p_fetch::OpHashSized;
 use mockall::automock;
 use std::sync::Arc;
@@ -167,6 +168,9 @@ pub trait HolochainP2pDnaT: Send + Sync + 'static {
 
     /// Access to the specified CHC
     fn chc(&self) -> Option<ChcImpl>;
+
+    /// The tag of the conductor state
+    fn tag(&self) -> ConductorStateTag;
 }
 
 /// A wrapper around HolochainP2pSender that partially applies the dna_hash / agent_pub_key.
@@ -176,6 +180,7 @@ pub struct HolochainP2pDna {
     sender: ghost_actor::GhostSender<actor::HolochainP2p>,
     dna_hash: Arc<DnaHash>,
     chc: Option<ChcImpl>,
+    tag: ConductorStateTag,
 }
 
 impl From<HolochainP2pDna> for GenericNetwork {
@@ -414,6 +419,10 @@ impl HolochainP2pDnaT for HolochainP2pDna {
 
     fn chc(&self) -> Option<ChcImpl> {
         self.chc.clone()
+    }
+
+    fn tag(&self) -> ConductorStateTag {
+        self.tag.clone()
     }
 }
 

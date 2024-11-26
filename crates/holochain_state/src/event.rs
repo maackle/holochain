@@ -1,12 +1,13 @@
 use crate::prelude::*;
 
 mod error;
-mod projection;
 pub use error::EventError;
 
 mod op_event;
 pub use op_event::OpEvent;
 
+mod projection;
+pub use projection::*;
 mod unsupported_event;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -63,7 +64,7 @@ impl EventData {
     fn ord_tiebreaker(&self) -> &[u8] {
         match self {
             Self::Op(e) => match e {
-                OpEvent::Authored { op } => op.signature().as_ref(),
+                OpEvent::Authored { op, .. } => op.signature().as_ref(),
                 OpEvent::Fetched { op, .. } => op.signature().as_ref(),
                 OpEvent::Validated { kind: _, op } => op.as_ref(),
                 OpEvent::Integrated { op } => op.as_ref(),
