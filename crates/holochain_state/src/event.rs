@@ -1,6 +1,7 @@
 use crate::prelude::*;
 
 mod error;
+mod projection;
 pub use error::EventError;
 
 mod op_event;

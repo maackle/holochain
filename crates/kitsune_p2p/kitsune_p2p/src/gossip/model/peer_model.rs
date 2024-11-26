@@ -12,7 +12,7 @@ use exhaustive::Exhaustive;
 use kitsune_p2p_bin_data::NodeCert;
 use kitsune_p2p_types::GossipType;
 use polestar::{
-    id::{IdMap, UpTo},
+    id::{IdMap, IdU8},
     prelude::*,
 };
 use proptest_derive::Arbitrary;
@@ -220,7 +220,7 @@ impl NodeAction {
 
 #[derive(Default)]
 pub struct PeerProjection {
-    ids: IdMap<PEERS, NodeCert>,
+    ids: IdMap<IdU8<PEERS>, NodeCert>,
 }
 
 impl PeerProjection {

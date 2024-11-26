@@ -8,6 +8,7 @@
 
 #[cfg(doc)]
 pub mod docs;
+mod model;
 
 #[cfg(feature = "hdk")]
 pub use hdk::HDI_VERSION;
