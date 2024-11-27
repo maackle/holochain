@@ -201,7 +201,8 @@ fn diagram_round_state() {
         ..Default::default()
     };
 
-    print_dot_state_diagram_mapped(
+    write_dot_state_diagram_mapped(
+        "/tmp/gossip-round-recent.dot",
         RoundMachine(GossipType::Recent),
         RoundPhase::Started(false),
         &config,
@@ -209,7 +210,8 @@ fn diagram_round_state() {
         |e| e,
     );
 
-    print_dot_state_diagram_mapped(
+    write_dot_state_diagram_mapped(
+        "/tmp/gossip-round-historical.dot",
         RoundMachine(GossipType::Historical),
         RoundPhase::Started(false),
         &config,
