@@ -6,6 +6,7 @@ use crate::core::queue_consumer::WorkComplete;
 use holochain_p2p::HolochainP2pDna;
 use holochain_p2p::HolochainP2pDnaT;
 use holochain_state::prelude::*;
+use holochain_types::projection::write_op_event;
 
 #[cfg(test)]
 mod query_tests;
@@ -26,9 +27,11 @@ pub async fn integrate_dht_ops_workflow(
     let time = holochain_zome_types::prelude::Timestamp::now();
     // Get any activity from the cache that is ready to be integrated.
     let activity_to_integrate = dht_query_cache.get_activity_to_integrate().await?;
+    let tag = network.tag();
     let (changed, activity_integrated) = vault
         .write_async(move |txn| {
             let mut total = 0;
+            let mut hashes_to_integrate: Vec<DhtOpHash> = Vec::new();
             if !activity_to_integrate.is_empty() {
                 let mut stmt = txn.prepare_cached(
                     holochain_sqlite::sql::sql_cell::UPDATE_INTEGRATE_DEP_ACTIVITY,
@@ -37,52 +40,86 @@ pub async fn integrate_dht_ops_workflow(
                     let start = seq_range.start();
                     let end = seq_range.end();
 
-                    total += stmt.execute(named_params! {
-                        ":when_integrated": time,
-                        ":register_activity": ChainOpType::RegisterAgentActivity,
-                        ":seq_start": start,
-                        ":seq_end": end,
-                        ":author": author,
-                    })?;
+                    let hashes = stmt
+                        .query_and_then(
+                            named_params! {
+                                ":when_integrated": time,
+                                ":register_activity": ChainOpType::RegisterAgentActivity,
+                                ":seq_start": start,
+                                ":seq_end": end,
+                                ":author": author,
+                            },
+                            |row| row.get("hash"),
+                        )?
+                        .collect::<Result<Vec<DhtOpHash>, _>>()?;
+                    total += hashes.len();
+                    hashes_to_integrate.extend(hashes);
                 }
             }
-            let changed = txn
+            let hashes = txn
                 .prepare_cached(holochain_sqlite::sql::sql_cell::UPDATE_INTEGRATE_DEP_STORE_ENTRY)?
-                .execute(named_params! {
-                    ":when_integrated": time,
-                    ":updated_content": ChainOpType::RegisterUpdatedContent,
-                    ":deleted_entry_action": ChainOpType::RegisterDeletedEntryAction,
-                    ":store_entry": ChainOpType::StoreEntry,
-                })?;
-            total += changed;
-            let changed = txn
+                .query_and_then(
+                    named_params! {
+                        ":when_integrated": time,
+                        ":updated_content": ChainOpType::RegisterUpdatedContent,
+                        ":deleted_entry_action": ChainOpType::RegisterDeletedEntryAction,
+                        ":store_entry": ChainOpType::StoreEntry,
+                    },
+                    |row| row.get("hash"),
+                )?
+                .collect::<Result<Vec<DhtOpHash>, _>>()?;
+            total += hashes.len();
+            hashes_to_integrate.extend(hashes);
+            let hashes = txn
                 .prepare_cached(
                     holochain_sqlite::sql::sql_cell::UPDATE_INTEGRATE_DEP_STORE_ENTRY_BASIS,
                 )?
-                .execute(named_params! {
-                    ":when_integrated": time,
-                    ":create_link": ChainOpType::RegisterAddLink,
-                    ":store_entry": ChainOpType::StoreEntry,
-                })?;
-            total += changed;
-            let changed = txn
-                .prepare_cached(holochain_sqlite::sql::sql_cell::UPDATE_INTEGRATE_DEP_STORE_RECORD)?
-                .execute(named_params! {
-                    ":when_integrated": time,
-                    ":store_record": ChainOpType::StoreRecord,
-                    ":updated_record": ChainOpType::RegisterUpdatedRecord,
-                    ":deleted_by": ChainOpType::RegisterDeletedBy,
-                })?;
-            total += changed;
-            let changed = txn
-                .prepare_cached(holochain_sqlite::sql::sql_cell::UPDATE_INTEGRATE_DEP_CREATE_LINK)?
-                .execute(named_params! {
-                    ":when_integrated": time,
-                    ":create_link": ChainOpType::RegisterAddLink,
-                    ":delete_link": ChainOpType::RegisterRemoveLink,
+                .query_and_then(
+                    named_params! {
+                        ":when_integrated": time,
+                        ":create_link": ChainOpType::RegisterAddLink,
+                        ":store_entry": ChainOpType::StoreEntry,
+                    },
+                    |row| row.get("hash"),
+                )?
+                .collect::<Result<Vec<DhtOpHash>, _>>()?;
+            total += hashes.len();
+            hashes_to_integrate.extend(hashes);
 
-                })?;
-            total += changed;
+            let hashes = txn
+                .prepare_cached(holochain_sqlite::sql::sql_cell::UPDATE_INTEGRATE_DEP_STORE_RECORD)?
+                .query_and_then(
+                    named_params! {
+                        ":when_integrated": time,
+                        ":store_record": ChainOpType::StoreRecord,
+                        ":updated_record": ChainOpType::RegisterUpdatedRecord,
+                        ":deleted_by": ChainOpType::RegisterDeletedBy,
+                    },
+                    |row| row.get("hash"),
+                )?
+                .collect::<Result<Vec<DhtOpHash>, _>>()?;
+            total += hashes.len();
+            hashes_to_integrate.extend(hashes);
+
+            let hashes = txn
+                .prepare_cached(holochain_sqlite::sql::sql_cell::UPDATE_INTEGRATE_DEP_CREATE_LINK)?
+                .query_and_then(
+                    named_params! {
+                        ":when_integrated": time,
+                        ":create_link": ChainOpType::RegisterAddLink,
+                        ":delete_link": ChainOpType::RegisterRemoveLink,
+
+                    },
+                    |row| row.get("hash"),
+                )?
+                .collect::<Result<Vec<DhtOpHash>, _>>()?;
+            total += hashes.len();
+            hashes_to_integrate.extend(hashes);
+
+            for hash in hashes_to_integrate {
+                write_op_event(&tag, OpEvent::Integrated { op: hash });
+            }
+
             WorkflowResult::Ok((total, activity_to_integrate))
         })
         .await?;

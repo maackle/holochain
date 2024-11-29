@@ -22,13 +22,13 @@ pub enum OpEvent {
     /// an op in the database, but once it does, this can be non-optional.
     Fetched { op: DhtOp },
 
-    /// The node has sys validated an op authored by someone else
+    /// The node has validated an op authored by someone else
     Validated { op: DhtOpHash, kind: ValidationType },
 
     /// The node has rejected an op
     Rejected { op: DhtOpHash },
 
-    /// The node has app validated an op authored by someone else
+    /// The node is awaiting a dependency before being able to validate
     AwaitingDeps {
         op: DhtOpHash,
         dep: AnyDhtHash,

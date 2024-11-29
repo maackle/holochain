@@ -312,6 +312,9 @@ async fn app_validation_workflow_inner(
                             holochain_types::projection::write_op_event(&tag, OpEvent::Validated { op: dht_op_hash.clone(), kind: ValidationType::App });
 
                             if deps.is_empty() {
+                                // POLESTAR: premature integration
+                                holochain_types::projection::write_op_event(&tag, OpEvent::Integrated { op: dht_op_hash.clone() });
+
                                 put_integrated(txn, &dht_op_hash, ValidationStatus::Valid)
                             } else {
                                 put_integration_limbo(txn, &dht_op_hash, ValidationStatus::Valid)
