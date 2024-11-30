@@ -1343,6 +1343,7 @@ mod network_impls {
                                     &tag,
                                     OpEvent::Sent {
                                         op: op_hash.clone(),
+                                        target: OpSendTarget::Vault,
                                     },
                                 );
                             }

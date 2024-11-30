@@ -20,7 +20,7 @@ use holochain_p2p::{
 };
 use holochain_sqlite::prelude::{AsP2pMetricStoreTxExt, AsP2pStateReadExt, AsP2pStateWriteExt};
 use holochain_types::{
-    model::OpEvent,
+    model::{OpEvent, OpSendTarget},
     prelude::{DhtOpHash, DnaError},
     share::RwShare,
 };
@@ -306,7 +306,10 @@ impl KitsuneHost for KitsuneHostImpl {
         let op = DhtOpHash::from_kitsune(op_hash);
         holochain_types::projection::polestar_write_op_event(
             &self.config.uid(),
-            OpEvent::Sent { op },
+            OpEvent::Sent {
+                op,
+                target: OpSendTarget::Vault,
+            },
         );
     }
 

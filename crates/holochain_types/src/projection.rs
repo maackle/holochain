@@ -12,7 +12,7 @@ use holo_hash::{
 };
 use holochain_model::{
     op_family::{OpFamilyAction, OpId},
-    op_network::{OpNetworkAction, OpNetworkMachine},
+    op_network::{OpNetworkAction, OpNetworkMachine, OpSendTarget},
     op_single::OpAction,
 };
 use parking_lot::Mutex;
@@ -94,7 +94,7 @@ pub struct OpEventMapping {
     other_entries: HashSet<EntryHash>,
 
     entry_to_action: HashMap<EntryHash, ActionHash>,
-    sent_ops: HashMap<DhtOpHash, NodeTag>,
+    sent_ops: HashMap<(DhtOpHash, OpSendTarget), NodeTag>,
 }
 
 // impl OpEventMapping {
@@ -200,17 +200,23 @@ impl OpEventMapping {
                     action: OpAction::Store(true).into(),
                 }
             }
-            OpEvent::Sent { op } => {
-                self.sent_ops.insert(op, node);
+            OpEvent::Sent { op, target } => {
+                self.sent_ops.insert((op, target), node);
                 return None;
             }
-            OpEvent::Fetched { op } => {
+            OpEvent::Fetched { op, target } => {
                 let op_hash = op.to_hash();
-                let from = self.sent_ops.get(&op_hash).cloned().unwrap();
+                let from = self
+                    .sent_ops
+                    .get(&(op_hash.clone(), target))
+                    .cloned()
+                    .unwrap();
+
                 OpNetworkAction::Receive {
                     op: self.op_id(&op_hash)?,
                     from: self.node_id(from),
                     valid: true,
+                    target,
                 }
             }
             OpEvent::AwaitingDeps { op, dep, kind } => OpNetworkAction::Local {

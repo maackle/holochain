@@ -1,5 +1,7 @@
 #![allow(missing_docs)]
 
+pub use holochain_model::op_network::OpSendTarget;
+
 use crate::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -16,12 +18,12 @@ pub enum OpEvent {
     /// This is a hack, it lets the projector register that the op was sent from
     /// a node so that it can match up on the receive side to know who sent it,
     /// because kitsune doesn't know who we got an op from.
-    Sent { op: DhtOpHash },
+    Sent { op: DhtOpHash, target: OpSendTarget },
 
     /// The node has fetched this op from another node via the FetchPool
     /// The Option is because Holochain does not currently store the origin of
     /// an op in the database, but once it does, this can be non-optional.
-    Fetched { op: DhtOp },
+    Fetched { op: DhtOp, target: OpSendTarget },
 
     /// The node has validated an op authored by someone else
     Validated { op: DhtOpHash, kind: ValidationType },

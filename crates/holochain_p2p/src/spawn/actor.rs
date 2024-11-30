@@ -622,7 +622,10 @@ impl HolochainP2pActor {
         for op in ops.iter() {
             holochain_types::projection::polestar_write_op_event(
                 &tag,
-                OpEvent::Fetched { op: op.clone() },
+                OpEvent::Fetched {
+                    op: op.clone(),
+                    target: OpSendTarget::Vault,
+                },
             );
         }
 
