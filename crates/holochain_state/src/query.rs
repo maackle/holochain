@@ -1094,7 +1094,7 @@ WHERE
         },
         |row| {
             let hash: DhtOpHash = row.get("hash")?;
-            let op_hashed = map_sql_dht_op_common(false, false, "type", row)?
+            let op_hashed = map_sql_dht_op_common(true, true, "type", row)?
                 .map(|op| DhtOpHashed::with_pre_hashed(op, hash));
             StateQueryResult::Ok(op_hashed)
         },

@@ -1014,7 +1014,7 @@ impl kitsune_p2p::event::KitsuneP2pEventHandler for HolochainP2pActor {
                     .map_err(HolochainP2pError::from)?
                     .op_data;
 
-                holochain_types::projection::write_op_event(
+                holochain_types::projection::polestar_write_op_event(
                     &tag,
                     OpEvent::Fetched { op: op.clone() },
                 );

@@ -242,7 +242,9 @@ async fn sharded_consistency() {
 #[cfg_attr(target_os = "windows", ignore = "flaky")]
 async fn private_entries_dont_leak() {
     use holochain::sweettest::SweetInlineZomes;
-    use holochain_types::inline_zome::InlineZomeSet;
+    use holochain_types::{
+        inline_zome::InlineZomeSet, polestar_comment, projection::polestar_set_dna,
+    };
 
     holochain_trace::test_run();
     let mut entry_def = EntryDef::default_from_id("entrydef");
@@ -274,6 +276,7 @@ async fn private_entries_dont_leak() {
     let mut conductors = SweetConductorBatch::from_standard_config_rendezvous(2).await;
 
     let (dna_file, _, _) = SweetDnaFile::unique_from_inline_zomes(zome.0).await;
+    polestar_set_dna(dna_file.dna_hash());
     let dnas = vec![dna_file];
 
     let apps = conductors.setup_app("app", &dnas).await.unwrap();
@@ -284,7 +287,9 @@ async fn private_entries_dont_leak() {
         .call(&alice.zome(SweetInlineZomes::COORDINATOR), "create", ())
         .await;
 
+    polestar_comment!("before first await");
     await_consistency(10, [&alice, &bobbo]).await.unwrap();
+    polestar_comment!("after first await");
 
     let entry_hash =
         EntryHash::with_data_sync(&Entry::app(PrivateEntry {}.try_into().unwrap()).unwrap());
@@ -304,10 +309,13 @@ async fn private_entries_dont_leak() {
     )
     .await;
 
+    polestar_comment!("");
+
     // Bobbo creates the same private entry.
     let bob_hash: ActionHash = conductors[1]
         .call(&bobbo.zome(SweetInlineZomes::COORDINATOR), "create", ())
         .await;
+
     await_consistency(10, [&alice, &bobbo]).await.unwrap();
 
     check_all_gets_for_private_entry(

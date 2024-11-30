@@ -244,6 +244,7 @@ impl SourceChain {
         network: &(dyn HolochainP2pDnaT + Send + Sync),
     ) -> SourceChainResult<Vec<SignedActionHashed>> {
         let tag = network.tag();
+        let dna_hash = network.dna_hash();
         // Nothing to write
         if self.scratch.apply(|s| s.is_empty())? {
             return Ok(Vec::new());
@@ -397,9 +398,9 @@ impl SourceChain {
                         let (op, hash) =
                             get_op_from_db(txn, op_hash).unwrap().unwrap().into_inner();
                         if let Some(op) = op.to_lite().as_chain_op() {
-                            holochain_types::projection::write_op_event(
+                            holochain_types::projection::polestar_write_op_event(
                                 &tag,
-                                OpEvent::authored(op.clone(), hash),
+                                OpEvent::authored(op.clone(), hash, dna_hash.clone()),
                             );
                         }
                     }
@@ -1122,7 +1123,7 @@ pub async fn genesis(
     let dna_action = Action::Dna(Dna {
         author: agent_pubkey.clone(),
         timestamp: Timestamp::now(),
-        hash: dna_hash,
+        hash: dna_hash.clone(),
     });
     let dna_action = ActionHashed::from_content_sync(dna_action);
     let dna_action = SignedActionHashed::sign(&keystore, dna_action).await?;
@@ -1194,6 +1195,7 @@ pub async fn genesis(
                     dna_ops,
                     None,
                     tag.clone(),
+                    &dna_hash,
                 )?);
                 ops_to_integrate.extend(source_chain::put_raw(
                     txn,
@@ -1201,6 +1203,7 @@ pub async fn genesis(
                     avh_ops,
                     None,
                     tag.clone(),
+                    &dna_hash,
                 )?);
                 ops_to_integrate.extend(source_chain::put_raw(
                     txn,
@@ -1208,6 +1211,7 @@ pub async fn genesis(
                     agent_ops,
                     agent_entry,
                     tag.clone(),
+                    &dna_hash,
                 )?);
                 SourceChainResult::Ok(ops_to_integrate)
             }
@@ -1235,6 +1239,7 @@ pub fn put_raw(
     ops: Vec<ChainOpLite>,
     entry: Option<Entry>,
     tag: ConductorStateTag,
+    dna_hash: &DnaHash,
 ) -> StateMutationResult<Vec<DhtOpHash>> {
     let (action, signature) = shh.into_inner();
     let (action, hash) = action.into_inner();
@@ -1268,7 +1273,10 @@ pub fn put_raw(
             &timestamp,
             None,
         )?;
-        holochain_types::projection::write_op_event(&tag, OpEvent::authored(op.clone(), op_hash));
+        holochain_types::projection::polestar_write_op_event(
+            &tag,
+            OpEvent::authored(op.clone(), op_hash, dna_hash.clone()),
+        );
     }
     Ok(ops_to_integrate)
 }

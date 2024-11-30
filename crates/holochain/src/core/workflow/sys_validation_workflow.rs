@@ -350,7 +350,7 @@ async fn sys_validation_workflow_inner(
                                 put_integrated(txn, &op_hash, ValidationStatus::Valid)?
                             }
                         };
-                        holochain_types::projection::write_op_event(
+                        holochain_types::projection::polestar_write_op_event(
                             &tag,
                             OpEvent::Validated {
                                 op: op_hash.clone(),
@@ -362,7 +362,7 @@ async fn sys_validation_workflow_inner(
                         summary.missing += 1;
                         let status = ValidationStage::AwaitingSysDeps;
                         put_validation_limbo(txn, &op_hash, status)?;
-                        holochain_types::projection::write_op_event(
+                        holochain_types::projection::polestar_write_op_event(
                             &tag,
                             OpEvent::AwaitingDeps {
                                 op: op_hash.clone(),
@@ -383,7 +383,7 @@ async fn sys_validation_workflow_inner(
                             put_integration_limbo(txn, &op_hash, ValidationStatus::Rejected)?;
                         }
 
-                        holochain_types::projection::write_op_event(
+                        holochain_types::projection::polestar_write_op_event(
                             &tag,
                             OpEvent::Rejected {
                                 op: op_hash.clone(),

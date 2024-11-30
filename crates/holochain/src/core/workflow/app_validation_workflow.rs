@@ -309,11 +309,11 @@ async fn app_validation_workflow_inner(
                         Outcome::Accepted => {
                             accepted_ops.fetch_add(1, Ordering::SeqCst);
 
-                            holochain_types::projection::write_op_event(&tag, OpEvent::Validated { op: dht_op_hash.clone(), kind: ValidationType::App });
+                            holochain_types::projection::polestar_write_op_event(&tag, OpEvent::Validated { op: dht_op_hash.clone(), kind: ValidationType::App });
 
                             if deps.is_empty() {
                                 // POLESTAR: premature integration
-                                holochain_types::projection::write_op_event(&tag, OpEvent::Integrated { op: dht_op_hash.clone() });
+                                holochain_types::projection::polestar_write_op_event(&tag, OpEvent::Integrated { op: dht_op_hash.clone() });
 
                                 put_integrated(txn, &dht_op_hash, ValidationStatus::Valid)
                             } else {
@@ -323,7 +323,7 @@ async fn app_validation_workflow_inner(
                         Outcome::AwaitingDeps(deps) => {
                             let dep = deps.first().unwrap();
 
-                            holochain_types::projection::write_op_event(&tag, OpEvent::AwaitingDeps { op: dht_op_hash.clone(), dep: dep.clone(), kind: ValidationType::App });
+                            holochain_types::projection::polestar_write_op_event(&tag, OpEvent::AwaitingDeps { op: dht_op_hash.clone(), dep: dep.clone(), kind: ValidationType::App });
 
                             dbg!("app val await");
                             awaiting_ops.fetch_add(1, Ordering::SeqCst);
@@ -338,7 +338,7 @@ async fn app_validation_workflow_inner(
 
                             tracing::info!("Received invalid op. The op author will be blocked. Op: {dht_op_lite:?}");
 
-                            holochain_types::projection::write_op_event(
+                            holochain_types::projection::polestar_write_op_event(
                                 &tag,
                                 OpEvent::Rejected {
                                     op: dht_op_hash.clone(),

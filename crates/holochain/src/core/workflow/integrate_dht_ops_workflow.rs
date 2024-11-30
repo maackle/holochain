@@ -6,7 +6,7 @@ use crate::core::queue_consumer::WorkComplete;
 use holochain_p2p::HolochainP2pDna;
 use holochain_p2p::HolochainP2pDnaT;
 use holochain_state::prelude::*;
-use holochain_types::projection::write_op_event;
+use holochain_types::projection::polestar_write_op_event;
 
 #[cfg(test)]
 mod query_tests;
@@ -117,7 +117,7 @@ pub async fn integrate_dht_ops_workflow(
             hashes_to_integrate.extend(hashes);
 
             for hash in hashes_to_integrate {
-                write_op_event(&tag, OpEvent::Integrated { op: hash });
+                polestar_write_op_event(&tag, OpEvent::Integrated { op: hash });
             }
 
             WorkflowResult::Ok((total, activity_to_integrate))

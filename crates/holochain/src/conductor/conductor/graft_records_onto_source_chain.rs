@@ -23,6 +23,7 @@ impl Conductor {
         let space = self.get_or_create_space(cell_id.dna_hash())?;
 
         let tag = self.uid();
+        let dna_hash = cell_id.dna_hash().clone();
 
         let chc = None;
         let network = self
@@ -101,9 +102,16 @@ impl Conductor {
                             .map(|op| op.dht_basis().clone())
                             .collect::<Vec<_>>();
                         ops_to_integrate.extend(
-                            source_chain::put_raw(txn, sah, ops, entry, tag.clone())?
-                                .into_iter()
-                                .zip(basis.into_iter()),
+                            source_chain::put_raw(
+                                txn,
+                                sah,
+                                ops,
+                                entry,
+                                tag.clone(),
+                                &dna_hash.clone(),
+                            )?
+                            .into_iter()
+                            .zip(basis.into_iter()),
                         );
                     }
                     SourceChainResult::Ok(ops_to_integrate)

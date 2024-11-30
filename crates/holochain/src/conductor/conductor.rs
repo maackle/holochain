@@ -835,6 +835,7 @@ mod network_impls {
     use std::time::Duration;
 
     use futures::future::join_all;
+    use holochain_types::projection::polestar_write_op_event;
     use rusqlite::params;
 
     use holochain_conductor_api::{
@@ -1174,6 +1175,7 @@ mod network_impls {
         ) -> ConductorApiResult<()> {
             use HolochainP2pEvent::*;
             let dna_hash = event.dna_hash().clone();
+            let tag = self.uid();
             trace!(dispatch_event = ?event);
             match event {
                 PutAgentInfoSigned {
@@ -1335,6 +1337,17 @@ mod network_impls {
                             .handle_fetch_op_data(&dna_hash, query)
                             .await
                             .map_err(holochain_p2p::HolochainP2pError::other);
+                        if let Ok(res) = res.as_ref() {
+                            for (op_hash, _) in res.iter() {
+                                polestar_write_op_event(
+                                    &tag,
+                                    OpEvent::Sent {
+                                        op: op_hash.clone(),
+                                    },
+                                );
+                            }
+                        }
+
                         respond.respond(Ok(async move { res }.boxed().into()));
                     }
                     .instrument(debug_span!("handle_fetch_op_data"))

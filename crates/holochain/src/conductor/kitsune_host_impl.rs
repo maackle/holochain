@@ -304,7 +304,10 @@ impl KitsuneHost for KitsuneHostImpl {
         _transfer_method: TransferMethod,
     ) {
         let op = DhtOpHash::from_kitsune(op_hash);
-        holochain_types::projection::write_op_event(&self.config.uid(), OpEvent::Sent { op });
+        holochain_types::projection::polestar_write_op_event(
+            &self.config.uid(),
+            OpEvent::Sent { op },
+        );
     }
 
     fn lair_tag(&self) -> Option<Arc<str>> {

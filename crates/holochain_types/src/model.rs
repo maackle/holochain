@@ -10,6 +10,7 @@ pub enum OpEvent {
         op_type: ChainOpType,
         action: ActionHash,
         entry: Option<EntryHash>,
+        dna_hash: DnaHash,
     },
 
     /// This is a hack, it lets the projector register that the op was sent from
@@ -44,7 +45,7 @@ pub enum OpEvent {
 }
 
 impl OpEvent {
-    pub fn authored(op: ChainOpLite, op_hash: DhtOpHash) -> Self {
+    pub fn authored(op: ChainOpLite, op_hash: DhtOpHash, dna_hash: DnaHash) -> Self {
         let action_hash = op.action_hash().clone();
         let entry_hash = op.entry_hash().cloned();
         Self::Authored {
@@ -52,6 +53,7 @@ impl OpEvent {
             op_type: op.get_type(),
             action: action_hash,
             entry: entry_hash,
+            dna_hash,
         }
     }
 }
