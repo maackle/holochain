@@ -11,6 +11,7 @@ use holochain::test_utils::inline_zomes::{
 };
 use holochain::test_utils::WaitFor;
 use holochain_p2p::*;
+use holochain_types::projection::polestar_set_dna;
 use kitsune_p2p_types::config::tuning_params_struct::KitsuneP2pTuningParams;
 use kitsune_p2p_types::config::RECENT_THRESHOLD_DEFAULT;
 
@@ -36,7 +37,7 @@ fn make_tuning(
     // This allows attempting to contact an offline node to timeout quickly,
     // so we can fallback to the next one
     tuning.default_rpc_single_timeout_ms = 3_000;
-    tuning.gossip_round_timeout_ms = 10_000;
+    tuning.gossip_round_timeout_ms = 3_000;
     tuning.bootstrap_check_delay_backoff_multiplier = 1;
 
     tuning
@@ -675,6 +676,7 @@ async fn three_way_gossip(config: holochain::sweettest::SweetConductorConfig) {
     let start = Instant::now();
 
     let (dna_file, _, _) = SweetDnaFile::unique_from_inline_zomes(simple_crud_zome()).await;
+    polestar_set_dna(dna_file.dna_hash());
 
     let cells = conductors
         .setup_app("app", [&dna_file])
@@ -814,6 +816,7 @@ async fn fullsync_sharded_local_gossip() -> anyhow::Result<()> {
 
     let (dna_file, _, _) =
         SweetDnaFile::unique_from_inline_zomes(("simple", simple_create_read_zome())).await;
+    polestar_set_dna(dna_file.dna_hash());
 
     let alice = conductor.setup_app("app", [&dna_file]).await.unwrap();
 

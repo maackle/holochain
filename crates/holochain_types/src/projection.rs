@@ -168,8 +168,6 @@ impl OpEventMapping {
     }
 
     pub fn map_event(&mut self, (node, event): (NodeTag, OpEvent)) -> Option<ModelAction> {
-        dbg!((&node, &event));
-
         let action = match event {
             OpEvent::Authored {
                 op,

@@ -1411,8 +1411,12 @@ impl Space {
                 })
                 .map(|(module, factory)| {
                     let url = local_url.lock().unwrap().clone();
-                    let purl = ProxyUrl::from_full(&url.unwrap()).unwrap();
-                    let cert = NodeCert::from(purl.digest().unwrap().0);
+                    let cert = if let Some(url) = url {
+                        let purl = ProxyUrl::from_full(&url).unwrap();
+                        Some(NodeCert::from(purl.digest().unwrap().0))
+                    } else {
+                        None
+                    };
                     (
                         module,
                         factory.spawn_gossip_task(

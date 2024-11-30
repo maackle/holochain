@@ -83,7 +83,7 @@ pub trait AsGossipModuleFactory: 'static + Send + Sync {
         host: HostApiLegacy,
         metrics: MetricsSync,
         fetch_pool: FetchPool,
-        local_cert: NodeCert,
+        local_cert: Option<NodeCert>,
     ) -> GossipModule;
 }
 
@@ -99,7 +99,7 @@ impl GossipModuleFactory {
         host: HostApiLegacy,
         metrics: MetricsSync,
         fetch_pool: FetchPool,
-        local_cert: NodeCert,
+        local_cert: Option<NodeCert>,
     ) -> GossipModule {
         self.0
             .spawn_gossip_task(config, space, ep_hnd, host, metrics, fetch_pool, local_cert)

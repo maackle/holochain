@@ -152,7 +152,7 @@ impl ShardedGossip {
         bandwidth: Arc<BandwidthThrottle>,
         metrics: MetricsSync,
         fetch_pool: FetchPool,
-        local_cert: NodeCert,
+        local_cert: Option<NodeCert>,
         #[cfg(test)] enable_history: bool,
     ) -> Arc<Self> {
         #[cfg(test)]
@@ -179,10 +179,10 @@ impl ShardedGossip {
                 gossip_type,
                 closing: closing.clone(),
                 fetch_pool,
-                // polestar_sender: None,
-                polestar_sender: Arc::new(polestar::event_handler::EventSender::new(
-                    polestar_sender,
-                )),
+                polestar_sender: Arc::new(polestar::event_handler::NullEventHandler),
+                // polestar_sender: Arc::new(polestar::event_handler::EventSender::new(
+                //     polestar_sender,
+                // )),
             };
 
             let machine = PeerMachine::new(gossip_type);
@@ -192,59 +192,63 @@ impl ShardedGossip {
                 .map_state(&gossip)
                 .expect("POLESTAR model mapping failed");
 
-            tokio::spawn(async move {
-                use polestar::Machine;
-                let mut actions = vec![];
-                let id = PEER_PROJECTION.lock().id(local_cert.clone());
-                while let Ok(event) = polestar_receiver.recv() {
-                    if closing.load(std::sync::atomic::Ordering::SeqCst) {
-                        break;
-                    }
-                    // Keep this locked for the whole transition so output doesn't get interleaved.
-                    let mut projection = PEER_PROJECTION.lock();
-                    let action = projection
-                        .map_event(event)
-                        .expect("POLESTAR event mapping failed");
+            if let Some(local_cert) = local_cert {
+                tokio::spawn(async move {
+                    use polestar::Machine;
+                    let mut actions = vec![];
+                    let id = PEER_PROJECTION.lock().id(local_cert.clone());
+                    while let Ok(event) = polestar_receiver.recv() {
+                        if closing.load(std::sync::atomic::Ordering::SeqCst) {
+                            break;
+                        }
+                        // Keep this locked for the whole transition so output doesn't get interleaved.
+                        let mut projection = PEER_PROJECTION.lock();
+                        let action = projection
+                            .map_event(event)
+                            .expect("POLESTAR event mapping failed");
 
-                    tracing::info!("\nTRANSITION on {id:?}");
-                    tracing::info!(" - event: {action:?}");
+                        tracing::info!("\nTRANSITION on {id:?}");
+                        tracing::info!(" - event: {action:?}");
 
-                    actions.push(action.clone());
+                        actions.push(action.clone());
 
-                    match machine.transition(state.clone(), action.clone()) {
-                        Ok((next, _fx)) => state = next,
-                        Err(error) => {
-                            eprintln!();
-                            eprintln!();
-                            eprintln!(
+                        match machine.transition(state.clone(), action.clone()) {
+                            Ok((next, _fx)) => state = next,
+                            Err(error) => {
+                                eprintln!();
+                                eprintln!();
+                                eprintln!(
                                 "POLESTAR transition failure for {id:?}, local_cert={local_cert:?}"
                             );
-                            eprintln!("================================================================================");
-                            eprintln!("vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv");
-                            eprintln!();
-                            eprintln!("Cert: {:?}", local_cert);
-                            eprintln!("Id: {:?}", id);
-                            eprintln!();
-                            eprintln!("Last model state: {:#?}", state);
-                            eprintln!();
-                            eprintln!("All actions (last one failed): {:#?}", actions);
-                            eprintln!();
-                            eprintln!("Error: {:?}", error);
-                            eprintln!();
-                            eprintln!("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
-                            eprintln!("================================================================================");
+                                eprintln!("================================================================================");
+                                eprintln!("vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv");
+                                eprintln!();
+                                eprintln!("Cert: {:?}", local_cert);
+                                eprintln!("Id: {:?}", id);
+                                eprintln!();
+                                eprintln!("Last model state: {:#?}", state);
+                                eprintln!();
+                                eprintln!("All actions (last one failed): {:#?}", actions);
+                                eprintln!();
+                                eprintln!("Error: {:?}", error);
+                                eprintln!();
+                                eprintln!("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
+                                eprintln!("================================================================================");
 
-                            closing.store(true, std::sync::atomic::Ordering::SeqCst);
+                                closing.store(true, std::sync::atomic::Ordering::SeqCst);
 
-                            panic!(
+                                panic!(
                                 "polestar model failed to transition for {id:?}, local_cert={local_cert:?}. See tracing ERROR output for details."
                             );
+                            }
                         }
-                    }
 
-                    tracing::info!(" - model: {state:?}");
-                }
-            });
+                        tracing::info!(" - model: {state:?}");
+                    }
+                });
+            } else {
+                tracing::warn!("No local cert for sharded gossip");
+            }
 
             gossip
         };
@@ -1557,7 +1561,7 @@ impl AsGossipModuleFactory for ShardedRecentGossipFactory {
         host: HostApiLegacy,
         metrics: MetricsSync,
         fetch_pool: FetchPool,
-        local_cert: NodeCert,
+        local_cert: Option<NodeCert>,
     ) -> GossipModule {
         GossipModule(ShardedGossip::new(
             config,
@@ -1594,7 +1598,7 @@ impl AsGossipModuleFactory for ShardedHistoricalGossipFactory {
         host: HostApiLegacy,
         metrics: MetricsSync,
         fetch_pool: FetchPool,
-        local_cert: NodeCert,
+        local_cert: Option<NodeCert>,
     ) -> GossipModule {
         GossipModule(ShardedGossip::new(
             config,

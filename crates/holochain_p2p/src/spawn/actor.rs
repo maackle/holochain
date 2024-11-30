@@ -612,6 +612,20 @@ impl HolochainP2pActor {
         ops: Vec<holochain_types::dht_op::DhtOp>,
     ) -> kitsune_p2p::actor::KitsuneP2pHandlerResult<()> {
         let evt_sender = self.evt_sender.clone();
+
+        let tag = self
+            .config
+            .tracing_scope
+            .clone()
+            .unwrap_or_else(|| "NO-TAG".to_string());
+
+        for op in ops.iter() {
+            holochain_types::projection::polestar_write_op_event(
+                &tag,
+                OpEvent::Fetched { op: op.clone() },
+            );
+        }
+
         Ok(async move {
             evt_sender
                 .publish(
@@ -1001,11 +1015,6 @@ impl kitsune_p2p::event::KitsuneP2pEventHandler for HolochainP2pActor {
         context: Option<FetchContext>,
     ) -> kitsune_p2p::event::KitsuneP2pEventHandlerResult<()> {
         let space = DnaHash::from_kitsune(&space);
-        let tag = self
-            .config
-            .tracing_scope
-            .clone()
-            .unwrap_or_else(|| "NO-TAG".to_string());
 
         let ops = ops
             .into_iter()
@@ -1013,11 +1022,6 @@ impl kitsune_p2p::event::KitsuneP2pEventHandler for HolochainP2pActor {
                 let op = crate::wire::WireDhtOpData::decode(op_data.0.clone())
                     .map_err(HolochainP2pError::from)?
                     .op_data;
-
-                holochain_types::projection::polestar_write_op_event(
-                    &tag,
-                    OpEvent::Fetched { op: op.clone() },
-                );
 
                 Ok(op)
             })
