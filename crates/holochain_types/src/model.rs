@@ -23,7 +23,7 @@ pub enum OpEvent {
     /// The node has fetched this op from another node via the FetchPool
     /// The Option is because Holochain does not currently store the origin of
     /// an op in the database, but once it does, this can be non-optional.
-    Fetched { op: DhtOp, target: OpSendTarget },
+    Fetched { op: DhtOpHash, target: OpSendTarget },
 
     /// The node has validated an op authored by someone else
     Validated { op: DhtOpHash, kind: ValidationType },

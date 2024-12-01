@@ -94,7 +94,7 @@ pub struct OpEventMapping {
     other_entries: HashSet<EntryHash>,
 
     entry_to_action: HashMap<EntryHash, ActionHash>,
-    sent_ops: HashMap<(DhtOpHash, OpSendTarget), NodeTag>,
+    sent_vault_ops: HashMap<DhtOpHash, NodeTag>,
 }
 
 // impl OpEventMapping {
@@ -201,20 +201,23 @@ impl OpEventMapping {
                 }
             }
             OpEvent::Sent { op, target } => {
-                self.sent_ops.insert((op, target), node);
+                if target == OpSendTarget::Vault {
+                    self.sent_vault_ops.insert(op, node);
+                } else {
+                    // TODO: too lazy to add send tracking for cache ops, since there are so many
+                    // cascade methods that lead to this point. But there should be a similar map
+                    // for sends of cached ops.
+                }
                 return None;
             }
             OpEvent::Fetched { op, target } => {
-                let op_hash = op.to_hash();
-                let from = self
-                    .sent_ops
-                    .get(&(op_hash.clone(), target))
-                    .cloned()
-                    .unwrap();
+                let op_hash = op;
+
+                let from = self.node_id(self.sent_vault_ops.get(&op_hash).cloned().unwrap());
 
                 OpNetworkAction::Receive {
                     op: self.op_id(&op_hash)?,
-                    from: self.node_id(from),
+                    from,
                     valid: true,
                     target,
                 }

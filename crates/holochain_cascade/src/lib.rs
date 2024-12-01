@@ -48,6 +48,7 @@ use holochain_state::query::record_details::GetRecordDetailsQuery;
 use holochain_state::query::DbScratch;
 use holochain_state::query::PrivateDataQuery;
 use holochain_state::scratch::SyncScratch;
+use holochain_types::projection::polestar_write_op_event;
 use metrics::create_cascade_duration_metric;
 use metrics::CascadeDurationMetric;
 use std::collections::HashMap;
@@ -444,10 +445,23 @@ impl CascadeImpl {
     #[cfg_attr(feature = "instrument", tracing::instrument(skip_all))]
     async fn merge_ops_into_cache(&self, responses: Vec<WireOps>) -> CascadeResult<()> {
         let cache = some_or_return!(self.cache.as_ref());
+        let tag = self.network.as_ref().map(|n| n.tag());
         cache
-            .write_async(|txn| {
+            .write_async(move |txn| {
                 for response in responses {
                     let ops = response.render()?;
+                    if let Some(ref tag) = tag {
+                        for op in ops.ops.iter() {
+                            let op_hash = op.op_hash.clone();
+                            polestar_write_op_event(
+                                &tag,
+                                OpEvent::Fetched {
+                                    op: op_hash,
+                                    target: OpSendTarget::Cache,
+                                },
+                            );
+                        }
+                    }
                     Self::insert_rendered_ops(txn, &ops)?;
                 }
                 CascadeResult::Ok(())
@@ -463,10 +477,23 @@ impl CascadeImpl {
         key: WireLinkKey,
     ) -> CascadeResult<()> {
         let cache = some_or_return!(self.cache.as_ref());
+        let tag = self.network.as_ref().map(|n| n.tag());
         cache
             .write_async(move |txn| {
                 for response in responses {
                     let ops = response.render(&key)?;
+                    if let Some(ref tag) = tag {
+                        for op in ops.ops.iter() {
+                            let op_hash = op.op_hash.clone();
+                            polestar_write_op_event(
+                                &tag,
+                                OpEvent::Fetched {
+                                    op: op_hash,
+                                    target: OpSendTarget::Cache,
+                                },
+                            );
+                        }
+                    }
                     Self::insert_rendered_ops(txn, &ops)?;
                 }
                 CascadeResult::Ok(())

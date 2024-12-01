@@ -63,7 +63,7 @@ impl EventData {
         match self {
             Self::Op(e) => match e {
                 OpEvent::Authored { op, .. } => op.as_ref(),
-                OpEvent::Fetched { op, .. } => op.signature().as_ref(),
+                OpEvent::Fetched { op, .. } => op.as_ref(),
                 OpEvent::Sent { op, .. } => op.as_ref(),
                 OpEvent::Validated { kind: _, op } => op.as_ref(),
                 OpEvent::Integrated { op } => op.as_ref(),
