@@ -671,6 +671,7 @@ impl CounterSigningSessionData {
     }
 }
 
+#[allow(missing_docs)]
 #[cfg(test)]
 pub mod test {
     use crate::CounterSigningAgentState;

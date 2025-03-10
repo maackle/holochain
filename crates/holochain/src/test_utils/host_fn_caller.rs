@@ -17,6 +17,7 @@ use hdk::prelude::*;
 use holo_hash::ActionHash;
 use holo_hash::AgentPubKey;
 use holo_hash::AnyDhtHash;
+use holochain_conductor_api::Signal;
 use holochain_conductor_services::DpkiImpl;
 use holochain_keystore::MetaLairClient;
 use holochain_p2p::actor::GetLinksOptions;

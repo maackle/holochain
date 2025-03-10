@@ -11,6 +11,7 @@ use holo_hash::HasHash;
 use holochain_serialized_bytes::prelude::*;
 use holochain_zome_types::prelude::*;
 
+#[allow(missing_docs)]
 #[cfg(all(test, feature = "test_utils"))]
 pub mod test;
 

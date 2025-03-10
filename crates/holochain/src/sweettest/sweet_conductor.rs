@@ -10,6 +10,7 @@ use crate::conductor::{
 };
 use ::fixt::prelude::StdRng;
 use hdk::prelude::*;
+use holochain_conductor_api::Signal;
 use holochain_conductor_api::{
     AdminRequest, AdminResponse, AppAuthenticationRequest, CellInfo, ProvisionedCell,
 };

@@ -5,9 +5,8 @@ use holochain::sweettest::{
     authenticate_app_ws_client, SweetConductor, SweetConductorConfig, SweetDnaFile,
     SweetLocalRendezvous,
 };
-use holochain_conductor_api::AppResponse;
+use holochain_conductor_api::{AppResponse, Signal};
 use holochain_types::prelude::InstalledAppId;
-use holochain_types::signal::Signal;
 use holochain_types::websocket::AllowedOrigins;
 use holochain_wasm_test_utils::TestWasm;
 use holochain_websocket::{ConnectRequest, WebsocketConfig};

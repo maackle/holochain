@@ -5,7 +5,7 @@ use super::error::InterfaceResult;
 use crate::conductor::conductor::app_broadcast::AppBroadcast;
 use crate::conductor::manager::TaskManagerClient;
 use holochain_serialized_bytes::SerializedBytes;
-use holochain_types::signal::Signal;
+use holochain_conductor_api::Signal;
 use holochain_websocket::WebsocketConfig;
 use holochain_websocket::WebsocketListener;
 use holochain_websocket::WebsocketReceiver;

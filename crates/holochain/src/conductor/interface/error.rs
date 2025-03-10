@@ -1,6 +1,6 @@
 use crate::conductor::error::ConductorError;
+use holochain_conductor_api::Signal;
 use holochain_serialized_bytes::SerializedBytesError;
-use holochain_types::signal::Signal;
 
 /// Interface Error Type
 #[derive(Debug, thiserror::Error)]

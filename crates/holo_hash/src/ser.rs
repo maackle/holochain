@@ -37,10 +37,17 @@ impl<'de, T: HashType> serde::de::Visitor<'de> for HoloHashVisitor<T> {
     where
         E: serde::de::Error,
     {
-        if !h.len() == 39 {
-            Err(serde::de::Error::custom(
-                "HoloHash serialized representation must be exactly 39 bytes",
-            ))
+        if h.len() != 39 {
+            if h.len() == 53 {
+                tracing::warn!(
+                    "Doing HoloHash hack for accidental b64 byte encoding, trying to decode as b64"
+                );
+                return self.visit_str(&String::from_utf8(h.to_vec()).unwrap());
+            } else {
+                Err(serde::de::Error::custom(
+                    "HoloHash serialized representation must be exactly 39 bytes",
+                ))
+            }
         } else {
             HoloHash::from_raw_39(h.to_vec())
                 .map_err(|e| serde::de::Error::custom(format!("HoloHash error: {:?}", e)))
@@ -67,7 +74,7 @@ impl<'de, T: HashType> serde::de::Visitor<'de> for HoloHashVisitor<T> {
     {
         let h = crate::holo_hash_decode_unchecked(b64)
             .map_err(|e| serde::de::Error::custom(format!("HoloHash error: {:?}", e)))?;
-        if !h.len() == 39 {
+        if h.len() != 39 {
             Err(serde::de::Error::custom(
                 "HoloHash serialized representation must be exactly 39 bytes",
             ))

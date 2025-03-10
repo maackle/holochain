@@ -48,6 +48,7 @@ pub mod prelude {
     #[cfg(feature = "hdk")]
     pub use hdk::link::GetLinksInputBuilder;
 
+    pub use holochain_conductor_api::Signal;
     pub use holochain_types::prelude::{fixt, *};
 
     #[cfg(feature = "fuzzing")]

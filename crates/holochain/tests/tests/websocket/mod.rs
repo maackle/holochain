@@ -2,6 +2,7 @@ use ::fixt::prelude::*;
 use anyhow::Result;
 use hdk::prelude::RemoteSignal;
 use holochain::conductor::interface::websocket::MAX_CONNECTIONS;
+use holochain::prelude::*;
 use holochain::sweettest::SweetConductorBatch;
 use holochain::sweettest::SweetConductorConfig;
 use holochain::sweettest::SweetDnaFile;

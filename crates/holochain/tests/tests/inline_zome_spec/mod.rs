@@ -2,6 +2,7 @@
 
 use hdk::prelude::*;
 use holochain::core::ribosome::guest_callback::validate::ValidateResult;
+use holochain::prelude::*;
 use holochain::test_utils::inline_zomes::{simple_crud_zome, AppString};
 use holochain::{conductor::api::error::ConductorApiResult, sweettest::*};
 use holochain::{

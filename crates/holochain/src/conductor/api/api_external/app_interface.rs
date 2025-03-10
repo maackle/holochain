@@ -163,6 +163,14 @@ impl AppInterfaceApi {
                         "app not in correct state to enable".to_string(),
                     )),
                 }
+            }
+            #[cfg(feature = "raft")]
+            AppRequest::Raft(raft_call) => {
+                let raft_response = self
+                    .conductor_handle
+                    .handle_raft_interface_call(raft_call)
+                    .await?;
+                Ok(AppResponse::Raft(raft_response))
             } //
               // TODO: implement after DPKI lands
               // AppRequest::RotateAppAgentKey => {

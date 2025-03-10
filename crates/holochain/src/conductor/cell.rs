@@ -46,6 +46,7 @@ use crate::core::workflow::GenesisWorkspace;
 use crate::core::workflow::InitializeZomesWorkflowArgs;
 use crate::core::workflow::ZomeCallResult;
 use crate::{conductor::api::error::ConductorApiError, core::ribosome::RibosomeT};
+use holochain_conductor_api::Signal;
 #[cfg(feature = "unstable-countersigning")]
 use {
     crate::core::queue_consumer::TriggerSender,
@@ -912,6 +913,23 @@ impl Cell {
         call: ZomeCall,
         workspace_lock: Option<SourceChainWorkspace>,
     ) -> CellResult<ZomeCallResult> {
+        if params.fn_name == FunctionName::from("raft-hardwired-hack")
+            || params.zome_name == ZomeName::from("raft-hardwired-hack")
+        {
+            let res = self
+                .conductor_handle
+                .handle_raft_rpc_call(
+                    self.id().dna_hash().clone(),
+                    params.payload.decode()?,
+                    params.provenance,
+                )
+                .await
+                .map_err(|e| {
+                    CellError::ConductorApiError(Box::new(ConductorApiError::other(e.to_string())))
+                })?;
+            return Ok(Ok(ZomeCallResponse::Ok(ExternIO::encode(res)?)));
+        }
+
         // Only check if init has run if this call is not coming from
         // an already running init call.
         if workspace_lock

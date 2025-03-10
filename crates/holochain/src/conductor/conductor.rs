@@ -48,11 +48,13 @@ use futures::future;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
 use futures::stream::StreamExt;
+use holochain_raft::{HcRaft, RaftId};
 #[cfg(feature = "wasmer_sys")]
 use holochain_wasmer_host::module::ModuleCache;
 use itertools::Itertools;
 use rusqlite::Transaction;
 use tokio::sync::mpsc::error::SendError;
+use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tracing::*;
 
@@ -66,6 +68,7 @@ use holochain_conductor_api::FullIntegrationStateDump;
 use holochain_conductor_api::FullStateDump;
 use holochain_conductor_api::IntegrationStateDump;
 use holochain_conductor_api::JsonDump;
+use holochain_conductor_api::Signal;
 pub use holochain_conductor_services::*;
 use holochain_keystore::lair_keystore::spawn_lair_keystore;
 use holochain_keystore::lair_keystore::spawn_lair_keystore_in_proc;
@@ -133,6 +136,9 @@ use super::{api::AdminInterfaceApi, manager::TaskManagerClient};
 mod builder;
 
 mod chc;
+
+#[cfg(feature = "raft")]
+mod raft;
 
 mod graft_records_onto_source_chain;
 
@@ -276,6 +282,9 @@ pub struct Conductor {
 
     /// Container to connect app signals to app interfaces, by installed app id.
     app_broadcast: AppBroadcast,
+
+    #[cfg(feature = "raft")]
+    pub(crate) rafts: Arc<Mutex<HashMap<(DnaHash, RaftId), HcRaft>>>,
 }
 
 impl Conductor {
@@ -340,6 +349,9 @@ mod startup_shutdown_impls {
                 wasmer_module_cache: None,
                 app_auth_token_store: RwShare::default(),
                 app_broadcast: AppBroadcast::default(),
+
+                #[cfg(feature = "raft")]
+                rafts: Arc::new(Mutex::new(HashMap::new())),
             }
         }
 
@@ -372,7 +384,15 @@ mod startup_shutdown_impls {
             let ghost_shutdown = self.holochain_p2p.ghost_actor_shutdown_immediate();
             let mut tm = self.task_manager();
             let task = self.detach_task_management().expect("Attempting to shut down after already detaching task management or previous shutdown");
+
+            let rafts = self.rafts.clone();
             tokio::task::spawn(async move {
+                for raft in rafts.lock().await.values_mut() {
+                    if let Err(err) = raft.shutdown().await {
+                        tracing::error!("error shutting down raft: {err:?}");
+                    }
+                }
+
                 tracing::info!("Sending shutdown signal to all managed tasks.");
                 let (_, _, r) = futures::join!(ghost_shutdown, tm.shutdown().boxed(), task,);
                 r?
