@@ -10,6 +10,11 @@ use super::*;
 #[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "slow_tests")]
 async fn test_raft() {
+    use either::Either;
+    use holochain_conductor_api::AppResponse;
+    use holochain_types::websocket::AllowedOrigins;
+    use holochain_websocket::ReceiveMessage;
+
     holochain_trace::test_run();
 
     tokio::spawn(async move {
@@ -33,6 +38,31 @@ async fn test_raft() {
     let apps = conductors.setup_app("app", &[dna_file]).await.unwrap();
     let app_id = apps[0].installed_app_id().clone();
     let cells = apps.cells_flattened();
+
+    let port = 13337 as u16;
+    for (i, c) in conductors.iter().enumerate() {
+        c.raw_handle()
+            .add_app_interface(Either::Left(port + i as u16), AllowedOrigins::Any, None)
+            .await
+            .unwrap();
+    }
+
+    // let port = conductors[0].list_app_interfaces().await.unwrap()[0]
+    //     .clone()
+    //     .port;
+
+    let sigs = Arc::new(Mutex::new(Vec::new()));
+    let signal_rx_task = {
+        let (_, mut rx) = websocket_client_by_port(port).await.unwrap();
+        let sigs = sigs.clone();
+        tokio::task::spawn(async move {
+            while let Ok(ReceiveMessage::Signal(s)) = rx.recv::<AppResponse>().await {
+                let signal = Signal::try_from_vec(s).unwrap();
+                println!("SIGNAL: {:?}", signal);
+                sigs.lock().await.push(signal);
+            }
+        })
+    };
 
     for (i, c) in cells.iter().enumerate() {
         println!("cell {}: {}", i, c.agent_pubkey().suffix(4));
@@ -135,6 +165,9 @@ async fn test_raft() {
     }
 
     println!("wrote data");
+
+    let sigs = sigs.lock().await.clone();
+    dbg!(&sigs);
 
     // Make more than half of the conductors crash
     for i in 0..(num + 1) / 2 {
