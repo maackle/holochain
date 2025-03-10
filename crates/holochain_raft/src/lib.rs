@@ -28,9 +28,11 @@ openraft::declare_raft_types!(
 
 impl p2p_raft::TypeCfg for HcrTypes {}
 
-/// State for a raft instance in the conductor
+/// State for a raft instance in the conductor.
+///
+/// A step up from a Dinghy.
 #[derive(Clone)]
-pub struct HcRaft {
+pub struct Catamaran {
     /// The raft instance
     pub raft: Dinghy,
     /// The client for making remote calls to other conductors' rafts
@@ -41,7 +43,7 @@ pub struct HcRaft {
     pub chore_task: Arc<JoinHandle<()>>,
 }
 
-impl HcRaft {
+impl Catamaran {
     pub async fn shutdown(&self) -> Result<(), tokio::task::JoinError> {
         self.chore_task.abort();
         self.raft.shutdown().await

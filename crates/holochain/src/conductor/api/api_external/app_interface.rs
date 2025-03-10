@@ -168,7 +168,7 @@ impl AppInterfaceApi {
             AppRequest::Raft(raft_call) => {
                 let raft_response = self
                     .conductor_handle
-                    .handle_raft_interface_call(raft_call)
+                    .handle_raft_interface_call(installed_app_id, raft_call)
                     .await?;
                 Ok(AppResponse::Raft(raft_response))
             } //

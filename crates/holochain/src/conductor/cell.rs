@@ -913,12 +913,23 @@ impl Cell {
         call: ZomeCall,
         workspace_lock: Option<SourceChainWorkspace>,
     ) -> CellResult<ZomeCallResult> {
+        let app_id = self
+            .conductor_handle
+            .get_state()
+            .await
+            .expect("can get state")
+            .find_app_containing_cell(&self.id)
+            .expect("cell must be part of an app")
+            .installed_app_id
+            .clone();
+
         if call.fn_name == FunctionName::from("raft-hardwired-hack")
             || call.zome_name == ZomeName::from("raft-hardwired-hack")
         {
             let res = self
                 .conductor_handle
                 .handle_raft_rpc_call(
+                    app_id,
                     self.id().dna_hash().clone(),
                     call.payload.decode()?,
                     call.provenance,

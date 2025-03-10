@@ -48,10 +48,11 @@ use futures::future;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
 use futures::stream::StreamExt;
-use holochain_raft::{HcRaft, RaftId};
+use holochain_raft::{Catamaran, RaftId};
 #[cfg(feature = "wasmer_sys")]
 use holochain_wasmer_host::module::ModuleCache;
 use itertools::Itertools;
+use raft::Yacht;
 use rusqlite::Transaction;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::Mutex;
@@ -284,7 +285,7 @@ pub struct Conductor {
     app_broadcast: AppBroadcast,
 
     #[cfg(feature = "raft")]
-    pub(crate) rafts: Arc<Mutex<HashMap<(DnaHash, RaftId), HcRaft>>>,
+    pub(crate) rafts: Arc<Mutex<HashMap<(DnaHash, RaftId), Yacht>>>,
 }
 
 impl Conductor {

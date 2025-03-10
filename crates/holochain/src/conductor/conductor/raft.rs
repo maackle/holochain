@@ -20,17 +20,24 @@ fn make_config() -> DinghyConfig {
 
 impl Conductor {
     /// Get a raft instance
-    pub async fn get_raft(&self, dna_hash: DnaHash, raft_id: RaftId) -> HcRaft {
+    pub async fn get_raft(
+        &self,
+        installed_app_id: InstalledAppId,
+        dna_hash: DnaHash,
+        raft_id: RaftId,
+    ) -> Yacht {
         let provenance = crate::core::workflow::sys_validation_workflow::get_representative_agent(
             self, &dna_hash,
         )
         .expect("TODO");
 
-        self.lookup_raft(dna_hash, provenance, raft_id).await
+        self.lookup_raft(installed_app_id, dna_hash, provenance, raft_id)
+            .await
     }
 
     pub(crate) async fn handle_raft_rpc_call(
         &self,
+        installed_app_id: InstalledAppId,
         dna_hash: DnaHash,
         request: RpcRequestEnvelope,
         remote_agent: AgentPubKey,
@@ -44,10 +51,16 @@ impl Conductor {
         let raft_id = request.raft_id;
 
         let data = self
-            .lookup_raft(dna_hash.clone(), local_agent.clone(), raft_id.clone())
+            .lookup_raft(
+                installed_app_id,
+                dna_hash.clone(),
+                local_agent.clone(),
+                raft_id.clone(),
+            )
             .await;
 
         let res = data
+            .raft
             .raft
             .handle_request(remote_agent.clone().into(), request.payload)
             .await
@@ -56,10 +69,13 @@ impl Conductor {
             })?;
 
         {
-            let mut t = data.raft.tracker.lock().await;
+            let mut t = data.raft.raft.tracker.lock().await;
             t.touch(&holochain_raft::HcNode::from(remote_agent));
-            t.handle_absentees(&data.raft, data.raft.config.p2p_config.responsive_interval)
-                .await;
+            t.handle_absentees(
+                &data.raft.raft,
+                data.raft.raft.config.p2p_config.responsive_interval,
+            )
+            .await;
         }
 
         Ok(res)
@@ -67,6 +83,7 @@ impl Conductor {
 
     pub(crate) async fn handle_raft_interface_call(
         &self,
+        installed_app_id: InstalledAppId,
         raft_call: RaftInterfaceRequest,
     ) -> ConductorResult<RaftInterfaceResponsePayload> {
         let dna_hash = raft_call.dna_hash.clone();
@@ -77,11 +94,17 @@ impl Conductor {
         )
         .expect("TODO");
 
-        let HcRaft {
+        let Catamaran {
             client, mut raft, ..
         } = self
-            .lookup_raft(dna_hash.clone(), local_agent.clone(), raft_call.raft_id)
-            .await;
+            .lookup_raft(
+                installed_app_id,
+                dna_hash.clone(),
+                local_agent.clone(),
+                raft_call.raft_id,
+            )
+            .await
+            .raft;
 
         match raft_call.payload {
             RaftInterfaceRequestPayload::Initialize(peers) => {
@@ -174,28 +197,38 @@ impl Conductor {
 
     async fn lookup_raft(
         &self,
+        installed_app_id: InstalledAppId,
         dna_hash: DnaHash,
         local_agent: AgentPubKey,
         raft_id: RaftId,
-    ) -> HcRaft {
+    ) -> Yacht {
         let mut rafts = self.rafts.lock().await;
 
-        match rafts.entry((dna_hash.clone(), raft_id.clone())) {
+        let yacht = match rafts.entry((dna_hash.clone(), raft_id.clone())) {
             std::collections::hash_map::Entry::Vacant(v) => {
-                let hc_raft = self.create_raft(dna_hash, local_agent, raft_id).await;
+                let hc_raft = self
+                    .create_raft(installed_app_id.clone(), dna_hash, local_agent, raft_id)
+                    .await;
                 v.insert(hc_raft.clone());
                 hc_raft
             }
             std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
+        };
+
+        if yacht.installed_app_id != installed_app_id {
+            panic!("can't lookup raft for two different installed app ids");
         }
+
+        yacht
     }
 
     async fn create_raft(
         &self,
+        installed_app_id: InstalledAppId,
         dna_hash: DnaHash,
         local_agent: AgentPubKey,
         raft_id: RaftId,
-    ) -> HcRaft {
+    ) -> Yacht {
         let client = HcClient {
             provenance: local_agent.clone(),
             keystore: self.keystore().clone(),
@@ -215,10 +248,26 @@ impl Conductor {
 
         let chore_task = tokio::spawn(raft.clone().chore_loop());
 
-        HcRaft {
+        let cat = Catamaran {
             client,
             raft,
             chore_task: Arc::new(chore_task),
+        };
+
+        Yacht {
+            raft: cat,
+            signal_tx: self
+                .app_broadcast
+                .create_send_handle(installed_app_id.clone()),
+            installed_app_id,
         }
     }
+}
+
+#[derive(Clone, derive_more::Deref)]
+pub struct Yacht {
+    #[deref]
+    pub raft: Catamaran,
+    pub signal_tx: tokio::sync::broadcast::Sender<Signal>,
+    installed_app_id: InstalledAppId,
 }

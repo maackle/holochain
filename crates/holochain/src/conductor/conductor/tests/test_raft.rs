@@ -31,6 +31,7 @@ async fn test_raft() {
     let dna_hash = dna_file.dna_hash().clone();
 
     let apps = conductors.setup_app("app", &[dna_file]).await.unwrap();
+    let app_id = apps[0].installed_app_id().clone();
     let cells = apps.cells_flattened();
 
     for (i, c) in cells.iter().enumerate() {
@@ -47,8 +48,8 @@ async fn test_raft() {
     };
 
     let rafts = futures::future::join_all(conductors.iter().map(|c| {
-        c.get_raft(dna_hash.clone(), raft_id.clone())
-            .map(|r| r.raft)
+        c.get_raft(app_id.clone(), dna_hash.clone(), raft_id.clone())
+            .map(|r| r.raft.raft)
     }))
     .await;
 
@@ -58,16 +59,19 @@ async fn test_raft() {
 
     // Initialize the first conductor with a raft with only itself
     conductors[0]
-        .handle_raft_interface_call(mk_payload(RaftInterfaceRequestPayload::Initialize(vec![
-            cells[0].agent_pubkey().clone(),
-        ])))
+        .handle_raft_interface_call(
+            app_id.clone(),
+            mk_payload(RaftInterfaceRequestPayload::Initialize(vec![cells[0]
+                .agent_pubkey()
+                .clone()])),
+        )
         .await
         .unwrap();
 
     dbg!();
 
     // wait for self-election
-    let leader_index = await_leader([&conductors[0]], [&cells[0]], &raft_id, None).await;
+    let leader_index = await_leader([&conductors[0]], [&cells[0]], &app_id, &raft_id, None).await;
     assert_eq!(leader_index, 0);
 
     dbg!();
@@ -85,9 +89,10 @@ async fn test_raft() {
         // This may error with NotAllowed if a raft message was already sent from another initialized node.
         // If so it's safe to ignore.
         conductors[i]
-            .handle_raft_interface_call(mk_payload(RaftInterfaceRequestPayload::Initialize(
-                peers.clone(),
-            )))
+            .handle_raft_interface_call(
+                app_id.clone(),
+                mk_payload(RaftInterfaceRequestPayload::Initialize(peers.clone())),
+            )
             .await
             .unwrap();
 
@@ -98,9 +103,10 @@ async fn test_raft() {
         // TODO: test the above.
         // TODO: Join and Initialize will pretty much always go together, so maybe they should be combined.
         let res = conductors[i]
-            .handle_raft_interface_call(mk_payload(RaftInterfaceRequestPayload::Join(
-                peers.clone(),
-            )))
+            .handle_raft_interface_call(
+                app_id.clone(),
+                mk_payload(RaftInterfaceRequestPayload::Join(peers.clone())),
+            )
             .await;
         println!(
             "JOIN {i}: {:?}  {res:?}",
@@ -109,16 +115,19 @@ async fn test_raft() {
     }
 
     // Wait for all clusters to agree on a leader
-    let leader_index = await_leader(conductors.iter(), &cells, &raft_id, None).await;
+    let leader_index = await_leader(conductors.iter(), &cells, &app_id, &raft_id, None).await;
 
     dbg!();
 
     // Let each node propose an op
     for i in 0..num {
         conductors[i]
-            .handle_raft_interface_call(mk_payload(RaftInterfaceRequestPayload::Propose(
-                RaftOp::from(vec![i as u8]),
-            )))
+            .handle_raft_interface_call(
+                app_id.clone(),
+                mk_payload(RaftInterfaceRequestPayload::Propose(RaftOp::from(vec![
+                    i as u8,
+                ]))),
+            )
             .await
             .unwrap();
 
@@ -135,7 +144,14 @@ async fn test_raft() {
     }
 
     // Wait for the survivors to agree on a new leader
-    let leader2 = await_leader(conductors.iter(), &cells, &raft_id, Some(leader_index)).await;
+    let leader2 = await_leader(
+        conductors.iter(),
+        &cells,
+        &app_id,
+        &raft_id,
+        Some(leader_index),
+    )
+    .await;
     dbg!(leader2);
     assert_ne!(leader_index, leader2);
 
@@ -146,9 +162,10 @@ async fn test_raft() {
         }
 
         let ops = conductors[i]
-            .handle_raft_interface_call(mk_payload(RaftInterfaceRequestPayload::GetUserLogEntries(
-                None,
-            )))
+            .handle_raft_interface_call(
+                app_id.clone(),
+                mk_payload(RaftInterfaceRequestPayload::GetUserLogEntries(None)),
+            )
             .await
             .unwrap();
 
@@ -166,8 +183,8 @@ async fn test_raft() {
 
     // re-fetch the newly created rafts
     let rafts = futures::future::join_all(conductors.iter().map(|c| {
-        c.get_raft(dna_hash.clone(), raft_id.clone())
-            .map(|r| r.raft)
+        c.get_raft(app_id.clone(), dna_hash.clone(), raft_id.clone())
+            .map(|r| r.raft.raft)
     }))
     .await;
 
@@ -190,6 +207,7 @@ async fn test_raft() {
 async fn await_leader(
     batch: impl IntoIterator<Item = &SweetConductor>,
     cells: impl IntoIterator<Item = &SweetCell>,
+    app_id: &InstalledAppId,
     raft_id: &RaftId,
     not_this_one: Option<usize>,
 ) -> usize {
@@ -201,8 +219,10 @@ async fn await_leader(
         let mut leaders = BTreeSet::new();
         for (cond, cell) in batch.iter().zip(cells.iter()) {
             if cond.is_running() {
-                let data = cond.get_raft(dna_hash.clone(), raft_id.clone()).await;
-                let leader = data.raft.current_leader().await.map(|l| l.agent());
+                let data = cond
+                    .get_raft(app_id.clone(), dna_hash.clone(), raft_id.clone())
+                    .await;
+                let leader = data.raft.raft.current_leader().await.map(|l| l.agent());
                 leaders.insert(leader.clone());
 
                 // let tracker = data.raft.tracker.lock().await;

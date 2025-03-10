@@ -3,6 +3,8 @@
 //! - App-defined signals are produced via the `emit_signal` host function.
 //! - System-defined signals are produced in various places in the system
 
+use std::collections::BTreeSet;
+
 use crate::impl_from;
 use holochain_serialized_bytes::prelude::*;
 use holochain_zome_types::prelude::*;
@@ -22,6 +24,10 @@ pub enum Signal {
     },
     /// System-defined signals
     System(SystemSignal),
+
+    #[cfg(feature = "raft")]
+    /// Raft-defined signals
+    Raft(RaftSignal),
 }
 
 impl Signal {
@@ -43,4 +49,18 @@ pub enum SystemSignal {
 
 impl_from! {
     SystemSignal => Signal, |s| { Self::System(s) },
+}
+
+#[cfg(feature = "raft")]
+#[derive(Clone, Debug, Serialize, Deserialize, SerializedBytes, PartialEq, Eq)]
+pub struct RaftSignal {
+    id: holochain_raft::RaftId,
+    event: RaftEvent,
+}
+
+#[cfg(feature = "raft")]
+#[derive(Clone, Debug, Serialize, Deserialize, SerializedBytes, PartialEq, Eq)]
+pub enum RaftEvent {
+    EntryCommitted(RaftLogOp),
+    MembershipChange(BTreeSet<AgentPubKey>),
 }
