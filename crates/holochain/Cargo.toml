@@ -52,7 +52,7 @@ holochain_nonce = { version = "^0.4.2-rc.0", path = "../holochain_nonce" }
 holochain_secure_primitive = { version = "^0.4.2-rc.0", path = "../holochain_secure_primitive" }
 holochain_conductor_services = { version = "^0.3.2-rc.1", path = "../holochain_conductor_services" }
 holochain_raft = { version = "^0.1.0", path = "../holochain_raft", optional = true }
-p2p-raft = { path = "/home/michael/proj/p2p-raft/crates/p2p-raft" }
+p2p-raft = { git = "https://github.com/maackle/p2p-raft.git" }
 human-panic = "2.0"
 itertools = { version = "0.12" }
 kitsune_p2p = { version = "^0.4.2-rc.1", path = "../kitsune_p2p/kitsune_p2p", default-features = false }

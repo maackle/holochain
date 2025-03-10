@@ -913,15 +913,15 @@ impl Cell {
         call: ZomeCall,
         workspace_lock: Option<SourceChainWorkspace>,
     ) -> CellResult<ZomeCallResult> {
-        if params.fn_name == FunctionName::from("raft-hardwired-hack")
-            || params.zome_name == ZomeName::from("raft-hardwired-hack")
+        if call.fn_name == FunctionName::from("raft-hardwired-hack")
+            || call.zome_name == ZomeName::from("raft-hardwired-hack")
         {
             let res = self
                 .conductor_handle
                 .handle_raft_rpc_call(
                     self.id().dna_hash().clone(),
-                    params.payload.decode()?,
-                    params.provenance,
+                    call.payload.decode()?,
+                    call.provenance,
                 )
                 .await
                 .map_err(|e| {

@@ -1,5 +1,6 @@
 use crate::{AppAuthenticationToken, ExternalApiWireError};
 use holo_hash::AgentPubKey;
+use holochain_keystore::{LairResult, MetaLairClient};
 use holochain_types::prelude::*;
 use kitsune_p2p_types::fetch_pool::FetchPoolInfo;
 use std::collections::HashMap;
@@ -170,6 +171,92 @@ pub enum AppResponse {
 
     /// Operation successful, no payload.
     Ok,
+}
+
+/// The data provided over an app interface in order to make a zome call
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ZomeCall {
+    /// The ID of the cell containing the zome to be called
+    pub cell_id: CellId,
+    /// The zome containing the function to be called
+    pub zome_name: ZomeName,
+    /// The name of the zome function to call
+    pub fn_name: FunctionName,
+    /// The serialized data to pass as an argument to the zome function call
+    pub payload: ExternIO,
+    /// The capability request authorization
+    ///
+    /// This can be `None` and still succeed in the case where the function
+    /// in the zome being called has been given an `Unrestricted` status
+    /// via a `CapGrant`. Otherwise it will be necessary to provide a `CapSecret` for every call.
+    pub cap_secret: Option<CapSecret>,
+    /// The provenance (source) of the call
+    /// MUST match the signature.
+    pub provenance: AgentPubKey,
+    pub signature: Signature,
+    pub nonce: Nonce256Bits,
+    pub expires_at: Timestamp,
+}
+
+impl From<ZomeCall> for ZomeCallUnsigned {
+    fn from(zome_call: ZomeCall) -> Self {
+        Self {
+            cell_id: zome_call.cell_id,
+            zome_name: zome_call.zome_name,
+            fn_name: zome_call.fn_name,
+            payload: zome_call.payload,
+            cap_secret: zome_call.cap_secret,
+            provenance: zome_call.provenance,
+            nonce: zome_call.nonce,
+            expires_at: zome_call.expires_at,
+        }
+    }
+}
+
+impl ZomeCall {
+    pub async fn try_from_unsigned_zome_call(
+        keystore: &MetaLairClient,
+        unsigned_zome_call: ZomeCallUnsigned,
+    ) -> LairResult<Self> {
+        let signature = unsigned_zome_call
+            .provenance
+            .sign_raw(
+                keystore,
+                unsigned_zome_call
+                    .data_to_sign()
+                    .map_err(|e| e.to_string())?,
+            )
+            .await?;
+        Ok(Self {
+            cell_id: unsigned_zome_call.cell_id,
+            zome_name: unsigned_zome_call.zome_name,
+            fn_name: unsigned_zome_call.fn_name,
+            payload: unsigned_zome_call.payload,
+            cap_secret: unsigned_zome_call.cap_secret,
+            provenance: unsigned_zome_call.provenance,
+            nonce: unsigned_zome_call.nonce,
+            expires_at: unsigned_zome_call.expires_at,
+            signature,
+        })
+    }
+
+    pub async fn resign_zome_call(
+        self,
+        keystore: &MetaLairClient,
+        agent_key: AgentPubKey,
+    ) -> LairResult<Self> {
+        let zome_call_unsigned = ZomeCallUnsigned {
+            provenance: agent_key,
+            cell_id: self.cell_id,
+            zome_name: self.zome_name,
+            fn_name: self.fn_name,
+            cap_secret: self.cap_secret,
+            payload: self.payload,
+            nonce: self.nonce,
+            expires_at: self.expires_at,
+        };
+        ZomeCall::try_from_unsigned_zome_call(keystore, zome_call_unsigned).await
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]

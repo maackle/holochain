@@ -18,6 +18,7 @@ pub use hdk::HDK_VERSION;
 /// Current Holochain Conductor rust crate version.
 pub const HOLOCHAIN_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[allow(missing_docs)]
 pub mod conductor;
 #[allow(missing_docs)]
 pub mod core;
@@ -26,10 +27,10 @@ pub mod core;
 pub mod fixt;
 
 #[cfg(any(test, feature = "test_utils"))]
-#[deny(missing_docs)]
+#[allow(missing_docs)]
 pub mod sweettest;
 #[cfg(any(test, feature = "test_utils"))]
-#[deny(missing_docs)]
+#[allow(missing_docs)]
 pub mod test_utils;
 
 // this is here so that wasm ribosome macros can reference it
