@@ -57,6 +57,7 @@ use rusqlite::Transaction;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
+use tokio_stream::wrappers::ReceiverStream;
 use tracing::*;
 
 pub use agent_key_operations::RevokeAgentKeyForAppResult;
@@ -286,6 +287,13 @@ pub struct Conductor {
 
     #[cfg(feature = "raft")]
     pub(crate) rafts: Arc<Mutex<HashMap<(DnaHash, RaftId), Yacht>>>,
+
+    #[cfg(feature = "raft")]
+    pub(crate) raft_signals: tokio::sync::mpsc::Sender<(
+        InstalledAppId,
+        RaftId,
+        tokio::sync::mpsc::Receiver<holochain_raft::RaftEvent>,
+    )>,
 }
 
 impl Conductor {
@@ -297,6 +305,8 @@ impl Conductor {
 
 /// Methods related to conductor startup/shutdown
 mod startup_shutdown_impls {
+
+    use holochain_conductor_api::RaftSignal;
 
     use crate::conductor::manager::{spawn_task_outcome_handler, OutcomeReceiver, OutcomeSender};
 
@@ -327,6 +337,35 @@ mod startup_shutdown_impls {
                 let _ = std::fs::create_dir_all(&path);
             }
 
+            let app_broadcast = AppBroadcast::default();
+
+            #[cfg(feature = "raft")]
+            let raft_signals_tx = {
+                let app_broadcast = app_broadcast.clone();
+                let (tx, mut rx) = tokio::sync::mpsc::channel(100);
+                tokio::spawn(async move {
+                    let mut map = tokio_stream::StreamMap::new();
+
+                    loop {
+                        tokio::select! {
+                            Some((app_id, raft_id, signal_rx)) = rx.recv() => {
+                                map.insert((app_id, raft_id), ReceiverStream::new(signal_rx));
+                            }
+                            Some(((app_id, raft_id), event)) = map.next() => {
+                                let signal = Signal::Raft(RaftSignal {
+                                    id: raft_id,
+                                    event
+                                });
+                                if let Err(err) = app_broadcast.create_send_handle(app_id).send(signal) {
+                                    tracing::error!("error sending raft signal: {err:?}");
+                                }
+                            }
+                        }
+                    }
+                });
+                tx
+            };
+
             Self {
                 spaces,
                 running_cells: RwShare::new(HashMap::new()),
@@ -349,10 +388,12 @@ mod startup_shutdown_impls {
                 #[cfg(feature = "wasmer_wamr")]
                 wasmer_module_cache: None,
                 app_auth_token_store: RwShare::default(),
-                app_broadcast: AppBroadcast::default(),
+                app_broadcast,
 
                 #[cfg(feature = "raft")]
                 rafts: Arc::new(Mutex::new(HashMap::new())),
+                #[cfg(feature = "raft")]
+                raft_signals: raft_signals_tx,
             }
         }
 

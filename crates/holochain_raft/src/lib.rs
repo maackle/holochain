@@ -15,6 +15,7 @@ pub use p2p_raft::DinghyConfig;
 use tokio::task::JoinHandle;
 
 pub type Dinghy = p2p_raft::Dinghy<HcrTypes, HcClient>;
+pub type RaftEvent = p2p_raft::signal::RaftEvent<HcrTypes>;
 
 openraft::declare_raft_types!(
     #[derive(serde::Serialize, serde::Deserialize)]
@@ -111,6 +112,8 @@ impl Default for HcNode {
     Debug,
     PartialEq,
     Eq,
+    PartialOrd,
+    Ord,
     Hash,
     serde::Serialize,
     serde::Deserialize,

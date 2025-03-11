@@ -50,9 +50,7 @@ pub mod inline_zome;
 pub mod test_utils;
 pub mod websocket;
 
-use holochain_keystore::{AgentPubKeyExt, LairResult, MetaLairClient};
 pub use holochain_zome_types::entry::EntryHashed;
-use holochain_zome_types::{prelude::Signature, zome_io::ExternIO};
 
 /// Convert to the older deepkey version of an HDK prelude type
 #[macro_export]

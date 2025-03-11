@@ -10,6 +10,8 @@ use super::*;
 #[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "slow_tests")]
 async fn test_raft() {
+    use std::collections::BTreeMap;
+
     use either::Either;
     use holochain_conductor_api::AppResponse;
     use holochain_types::websocket::AllowedOrigins;
@@ -39,12 +41,14 @@ async fn test_raft() {
     let app_id = apps[0].installed_app_id().clone();
     let cells = apps.cells_flattened();
 
-    let port = 13337 as u16;
-    for (i, c) in conductors.iter().enumerate() {
-        c.raw_handle()
-            .add_app_interface(Either::Left(port + i as u16), AllowedOrigins::Any, None)
+    let mut ports = vec![];
+    for (_i, c) in conductors.iter().enumerate() {
+        let port = c
+            .raw_handle()
+            .add_app_interface(Either::Left(0), AllowedOrigins::Any, Some(app_id.clone()))
             .await
             .unwrap();
+        ports.push(port);
     }
 
     // let port = conductors[0].list_app_interfaces().await.unwrap()[0]
@@ -52,17 +56,36 @@ async fn test_raft() {
     //     .port;
 
     let sigs = Arc::new(Mutex::new(Vec::new()));
-    let signal_rx_task = {
-        let (_, mut rx) = websocket_client_by_port(port).await.unwrap();
-        let sigs = sigs.clone();
-        tokio::task::spawn(async move {
-            while let Ok(ReceiveMessage::Signal(s)) = rx.recv::<AppResponse>().await {
-                let signal = Signal::try_from_vec(s).unwrap();
-                println!("SIGNAL: {:?}", signal);
-                sigs.lock().await.push(signal);
-            }
-        })
+
+    let print_sigs = || async {
+        let sigs = sigs.lock().await.clone();
+        let mut m = BTreeMap::new();
+        for (i, _s) in sigs {
+            let e = m.entry(i).or_insert(0);
+            *e += 1;
+        }
+        m
     };
+
+    for i in 0..num {
+        let admin_port = conductors[i].get_arbitrary_admin_websocket_port().unwrap();
+        let _task = {
+            let (tx, mut rx) = websocket_client_by_port(ports[i]).await.unwrap();
+            authenticate_app_ws_client(tx, admin_port, app_id.clone()).await;
+            let sigs = sigs.clone();
+            tokio::task::spawn(async move {
+                while let Ok(r) = rx.recv::<AppResponse>().await {
+                    match r {
+                        ReceiveMessage::Signal(s) => {
+                            let signal = Signal::try_from_vec(s).unwrap();
+                            sigs.lock().await.push((i, signal));
+                        }
+                        _ => {}
+                    }
+                }
+            })
+        };
+    }
 
     for (i, c) in cells.iter().enumerate() {
         println!("cell {}: {}", i, c.agent_pubkey().suffix(4));
@@ -166,8 +189,7 @@ async fn test_raft() {
 
     println!("wrote data");
 
-    let sigs = sigs.lock().await.clone();
-    dbg!(&sigs);
+    dbg!(print_sigs().await);
 
     // Make more than half of the conductors crash
     for i in 0..(num + 1) / 2 {
@@ -175,6 +197,8 @@ async fn test_raft() {
         println!("SHUTDOWN {i}");
         await_partition_stability(&rafts[i + 1..]).await;
     }
+
+    dbg!(print_sigs().await);
 
     // Wait for the survivors to agree on a new leader
     let leader2 = await_leader(
@@ -221,7 +245,11 @@ async fn test_raft() {
     }))
     .await;
 
+    dbg!(print_sigs().await);
+
     await_partition_stability(&rafts).await;
+
+    dbg!(print_sigs().await);
 
     // Check that all conductors are voters
     for i in 0..num {

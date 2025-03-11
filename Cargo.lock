@@ -573,9 +573,9 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "base64ct"
-version = "1.6.0"
+version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
+checksum = "bb97d56060ee67d285efb8001fec9d2a4c710c32efd2e14b5cbb5ba71930fc2d"
 
 [[package]]
 name = "bimap"
@@ -1016,9 +1016,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.31"
+version = "4.5.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "027bb0d98429ae334a8698531da7077bdf906419543a35a55c2cb1b66437d767"
+checksum = "6088f3ae8c3608d19260cd7445411865a485688711b78b5be70d78cd96136f83"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1026,9 +1026,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.31"
+version = "4.5.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5589e0cba072e0f3d23791efac0fd8627b49c829c196a492e88168e6a669d863"
+checksum = "22a7ef7f676155edfb82daa97f99441f3ebf4a58d5e32f295a56259f1b6facc8"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1039,9 +1039,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.5.28"
+version = "4.5.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf4ced95c6f4a675af3da73304b9ac4ed991640c36374e4b46795c49e17cf1ed"
+checksum = "09176aae279615badda0765c0c0b3f6ed53f4709118af73cf4655d85d1530cd7"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -1344,7 +1344,7 @@ dependencies = [
  "anes",
  "cast",
  "ciborium",
- "clap 4.5.31",
+ "clap 4.5.32",
  "criterion-plot",
  "futures",
  "is-terminal",
@@ -1561,7 +1561,7 @@ version = "1.0.143"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19c3062da294104183e1c34ea9887941d4d8c74f6195ce9fbb430ac4b5290ede"
 dependencies = [
- "clap 4.5.31",
+ "clap 4.5.32",
  "codespan-reporting",
  "proc-macro2",
  "quote",
@@ -2019,9 +2019,9 @@ dependencies = [
 
 [[package]]
 name = "env_logger"
-version = "0.11.6"
+version = "0.11.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcaee3d8e3cfc3fd92428d477bc97fc29ec8716d180c0d74c643bb26166660e0"
+checksum = "c3716d7a920fb4fac5d84e9d4bce8ceb321e9414b4409da61b07b75c1e3d0697"
 dependencies = [
  "env_filter",
  "log",
@@ -2480,7 +2480,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4271d37baee1b8c7e4b708028c57d816cf9d2434acb33a549475f78c181f6253"
 dependencies = [
  "fallible-iterator",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "stable_deref_trait",
 ]
 
@@ -2537,7 +2537,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http 0.2.12",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "slab",
  "tokio",
  "tokio-util",
@@ -2640,7 +2640,7 @@ name = "hc_demo_cli"
 version = "0.2.0-beta-rc.0"
 dependencies = [
  "cfg-if 1.0.0",
- "clap 4.5.31",
+ "clap 4.5.32",
  "flate2",
  "getrandom 0.2.15",
  "hdi",
@@ -2688,7 +2688,7 @@ dependencies = [
 name = "hc_service_check"
 version = "0.1.2-rc.1"
 dependencies = [
- "clap 4.5.31",
+ "clap 4.5.32",
  "kitsune_p2p_bootstrap_client",
  "tokio",
  "tx5-go-pion",
@@ -2725,7 +2725,7 @@ version = "0.4.2-rc.1"
 dependencies = [
  "anyhow",
  "chrono",
- "clap 4.5.31",
+ "clap 4.5.32",
  "crossterm 0.28.1",
  "holo_hash",
  "holochain_conductor_api",
@@ -2932,7 +2932,7 @@ dependencies = [
  "bytes",
  "cfg-if 1.0.0",
  "chrono",
- "clap 4.5.31",
+ "clap 4.5.32",
  "contrafact",
  "criterion",
  "derive_more 0.99.19",
@@ -3101,7 +3101,7 @@ name = "holochain_cli"
 version = "0.4.2-rc.1"
 dependencies = [
  "anyhow",
- "clap 4.5.31",
+ "clap 4.5.32",
  "holochain_cli_bundle",
  "holochain_cli_run_local_services",
  "holochain_cli_sandbox",
@@ -3116,7 +3116,7 @@ version = "0.4.2-rc.1"
 dependencies = [
  "anyhow",
  "assert_cmd",
- "clap 4.5.31",
+ "clap 4.5.32",
  "futures",
  "holochain_serialized_bytes",
  "holochain_types",
@@ -3140,7 +3140,7 @@ dependencies = [
 name = "holochain_cli_run_local_services"
 version = "0.4.2-rc.1"
 dependencies = [
- "clap 4.5.31",
+ "clap 4.5.32",
  "futures",
  "holochain_trace",
  "if-addrs 0.12.0",
@@ -3157,7 +3157,7 @@ dependencies = [
  "ansi_term",
  "anyhow",
  "chrono",
- "clap 4.5.31",
+ "clap 4.5.32",
  "ed25519-dalek",
  "futures",
  "holochain_chc",
@@ -4166,9 +4166,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.7.1"
+version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c9c992b02b5b4c94ea26e32fe5bccb7aa7d9f390ab5c1221ff895bc7ea8b652"
+checksum = "3954d50fe15b02142bf25d3b8bdadb634ec3948f103d04ffe3031bc8fe9d7058"
 dependencies = [
  "equivalent",
  "hashbrown 0.15.2",
@@ -4188,12 +4188,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "232929e1d75fe899576a3d5c7416ad0d88dbfbb3c3d6aa00873a7408a50ddb88"
 dependencies = [
  "ahash 0.8.11",
- "clap 4.5.31",
+ "clap 4.5.32",
  "crossbeam-channel",
  "crossbeam-utils",
  "dashmap 6.1.0",
  "env_logger",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "is-terminal",
  "itoa",
  "log",
@@ -4430,6 +4430,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4486,7 +4495,7 @@ dependencies = [
  "anyhow",
  "base64 0.21.7",
  "bytecount",
- "clap 4.5.31",
+ "clap 4.5.32",
  "fancy-regex",
  "fraction",
  "getrandom 0.2.15",
@@ -4590,7 +4599,7 @@ dependencies = [
 name = "kitsune_p2p_bootstrap"
 version = "0.3.2-rc.1"
 dependencies = [
- "clap 4.5.31",
+ "clap 4.5.32",
  "criterion",
  "fixt",
  "futures",
@@ -4687,7 +4696,7 @@ dependencies = [
  "holochain_serialized_bytes",
  "holochain_trace",
  "human-repr",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "kitsune_p2p_fetch",
  "kitsune_p2p_timestamp",
  "kitsune_p2p_types",
@@ -5606,7 +5615,7 @@ dependencies = [
  "crc32fast",
  "flate2",
  "hashbrown 0.14.5",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "memchr",
  "ruzstd",
 ]
@@ -5622,9 +5631,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.20.3"
+version = "1.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "945462a4b81e43c4e3ba96bd7b49d834c6f61198356aa858733bc4acf3cbe62e"
+checksum = "cde51589ab56b20a6f686b2c68f7a0bd6add753d697abf720d63f8db3ab7b1ad"
 
 [[package]]
 name = "one_err"
@@ -5652,7 +5661,7 @@ dependencies = [
  "anyerror",
  "byte-unit",
  "chrono",
- "clap 4.5.31",
+ "clap 4.5.32",
  "derive_more 1.0.0",
  "futures",
  "maplit",
@@ -5792,19 +5801,19 @@ dependencies = [
 [[package]]
 name = "p2p-raft"
 version = "0.1.0"
-source = "git+https://github.com/maackle/p2p-raft.git#31381ecfe88ae5ed31ff0604a447fc76f5364ddf"
+source = "git+https://github.com/maackle/p2p-raft.git#42c0375eddaded4c4691d5268009a8c34d830232"
 dependencies = [
  "anyhow",
  "derive_more 1.0.0",
  "futures",
- "itertools 0.8.2",
+ "itertools 0.14.0",
  "maplit",
  "nanoid",
  "openraft",
  "openraft-macros",
  "openraft-memstore",
  "p2p-raft-memstore",
- "parking_lot 0.4.8",
+ "parking_lot 0.12.3",
  "rand 0.9.0",
  "serde",
  "tokio",
@@ -5815,7 +5824,7 @@ dependencies = [
 [[package]]
 name = "p2p-raft-memstore"
 version = "0.1.0"
-source = "git+https://github.com/maackle/p2p-raft.git#31381ecfe88ae5ed31ff0604a447fc76f5364ddf"
+source = "git+https://github.com/maackle/p2p-raft.git#42c0375eddaded4c4691d5268009a8c34d830232"
 dependencies = [
  "derive_more 1.0.0",
  "openraft",
@@ -5938,7 +5947,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4c5cc86750666a3ed20bdaf5ca2a0344f9c67674cae0515bec2da16fbaa47db"
 dependencies = [
  "fixedbitset",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "quickcheck",
 ]
 
@@ -7005,7 +7014,7 @@ dependencies = [
  "bytecheck 0.8.1",
  "bytes",
  "hashbrown 0.15.2",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "munge",
  "ptr_meta 0.3.0",
  "rancor",
@@ -7376,7 +7385,7 @@ dependencies = [
  "anstyle",
  "base64 0.22.1",
  "bytes",
- "clap 4.5.31",
+ "clap 4.5.32",
  "ed25519-dalek",
  "futures",
  "rand 0.8.5",
@@ -7554,7 +7563,7 @@ version = "1.0.140"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20068b6e96dc6c9bd23e01df8827e6c7e1f2fddd43c21810382803c136b99373"
 dependencies = [
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "itoa",
  "memchr",
  "ryu",
@@ -7592,7 +7601,7 @@ dependencies = [
  "chrono",
  "hex",
  "indexmap 1.9.3",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "serde",
  "serde_derive",
  "serde_json",
@@ -7618,7 +7627,7 @@ version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
 dependencies = [
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "itoa",
  "ryu",
  "serde",
@@ -8552,7 +8561,7 @@ version = "0.22.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17b4795ff5edd201c7cd6dca065ae59972ce77d1b80fa0a84d94950ece7d1474"
 dependencies = [
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "serde",
  "serde_spanned",
  "toml_datetime",
@@ -9416,7 +9425,7 @@ dependencies = [
  "enumset",
  "getrandom 0.2.15",
  "hex",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "more-asserts",
  "rkyv 0.8.10",
  "sha2",
@@ -9439,7 +9448,7 @@ dependencies = [
  "dashmap 6.1.0",
  "enum-iterator",
  "fnv",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "lazy_static",
  "libc",
  "mach2",
@@ -9461,7 +9470,7 @@ dependencies = [
  "ahash 0.8.11",
  "bitflags 2.9.0",
  "hashbrown 0.14.5",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "semver",
 ]
 
@@ -9472,7 +9481,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f51cad774fb3c9461ab9bccc9c62dfb7388397b5deda31bf40e8108ccd678b2"
 dependencies = [
  "bitflags 2.9.0",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "semver",
 ]
 
@@ -10206,7 +10215,7 @@ dependencies = [
  "displaydoc",
  "flate2",
  "hmac",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
  "lzma-rs",
  "memchr",
  "pbkdf2",

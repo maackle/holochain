@@ -202,17 +202,18 @@ impl Conductor {
         local_agent: AgentPubKey,
         raft_id: RaftId,
     ) -> Yacht {
-        let mut rafts = self.rafts.lock().await;
-
-        let yacht = match rafts.entry((dna_hash.clone(), raft_id.clone())) {
-            std::collections::hash_map::Entry::Vacant(v) => {
-                let hc_raft = self
-                    .create_raft(installed_app_id.clone(), dna_hash, local_agent, raft_id)
-                    .await;
-                v.insert(hc_raft.clone());
-                hc_raft
+        let yacht = {
+            let mut rafts = self.rafts.lock().await;
+            match rafts.entry((dna_hash.clone(), raft_id.clone())) {
+                std::collections::hash_map::Entry::Vacant(v) => {
+                    let hc_raft = self
+                        .create_raft(installed_app_id.clone(), dna_hash, local_agent, raft_id)
+                        .await;
+                    v.insert(hc_raft.clone());
+                    hc_raft
+                }
+                std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
             }
-            std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
         };
 
         if yacht.installed_app_id != installed_app_id {
@@ -235,18 +236,31 @@ impl Conductor {
             raft_id: raft_id.clone(),
             network: self.holochain_p2p().to_dna(dna_hash.clone(), None),
             raft: Arc::new(Mutex::new(None)),
-            // tracker: PeerTracker::new(),
         };
 
         let raft_lock = client.raft.clone();
 
+        let (signal_tx, signal_rx) = tokio::sync::mpsc::channel(100);
+
         let config = make_config();
-        let raft =
-            holochain_raft::Dinghy::new_mem(local_agent.clone().into(), config, client.clone())
-                .await;
+        let raft = holochain_raft::Dinghy::new_mem(
+            local_agent.clone().into(),
+            config,
+            client.clone(),
+            Some(signal_tx),
+        )
+        .await;
         *raft_lock.lock().await = Some(raft.clone());
 
-        let chore_task = tokio::spawn(raft.clone().chore_loop());
+        if let Err(err) = self
+            .raft_signals
+            .send((installed_app_id.clone(), raft_id, signal_rx))
+            .await
+        {
+            tracing::warn!("raft signal receiver receiver dropped: {err:?}");
+        }
+
+        let chore_task = tokio::spawn({ raft.clone().chore_loop() });
 
         let cat = Catamaran {
             client,
