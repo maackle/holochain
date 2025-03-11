@@ -44,17 +44,17 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Instant;
 
-use futures::future;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
 use futures::stream::StreamExt;
-use holochain_raft::{Catamaran, RaftId};
+use futures::{future, Sink, Stream};
+use holochain_raft::RaftSpace;
 #[cfg(feature = "wasmer_sys")]
 use holochain_wasmer_host::module::ModuleCache;
 use itertools::Itertools;
 use raft::Yacht;
 use rusqlite::Transaction;
-use tokio::sync::mpsc::error::SendError;
+use tokio::sync::mpsc::error::{SendError, TrySendError};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::ReceiverStream;
@@ -286,13 +286,13 @@ pub struct Conductor {
     app_broadcast: AppBroadcast,
 
     #[cfg(feature = "raft")]
-    pub(crate) rafts: Arc<Mutex<HashMap<(DnaHash, RaftId), Yacht>>>,
+    pub(crate) rafts: Arc<Mutex<HashMap<(DnaHash, RaftSpace), Yacht>>>,
 
     #[cfg(feature = "raft")]
-    pub(crate) raft_signals: tokio::sync::mpsc::Sender<(
+    pub(crate) raft_signal_receiver_sender: tokio::sync::mpsc::Sender<(
         InstalledAppId,
-        RaftId,
-        tokio::sync::mpsc::Receiver<holochain_raft::RaftEvent>,
+        RaftSpace,
+        tokio::sync::mpsc::Receiver<(holochain_raft::HcNode, holochain_raft::RaftEvent)>,
     )>,
 }
 
@@ -340,20 +340,21 @@ mod startup_shutdown_impls {
             let app_broadcast = AppBroadcast::default();
 
             #[cfg(feature = "raft")]
-            let raft_signals_tx = {
+            let raft_tx = {
                 let app_broadcast = app_broadcast.clone();
-                let (tx, mut rx) = tokio::sync::mpsc::channel(100);
+                let (tx_receivers, mut rx_receivers_from_conductor) =
+                    tokio::sync::mpsc::channel(100);
                 tokio::spawn(async move {
                     let mut map = tokio_stream::StreamMap::new();
 
                     loop {
                         tokio::select! {
-                            Some((app_id, raft_id, signal_rx)) = rx.recv() => {
-                                map.insert((app_id, raft_id), ReceiverStream::new(signal_rx));
+                            Some((app_id, raft_space, rx_signals_from_raft)) = rx_receivers_from_conductor.recv() => {
+                                map.insert((app_id, raft_space), ReceiverStream::new(rx_signals_from_raft));
                             }
-                            Some(((app_id, raft_id), event)) = map.next() => {
+                            Some(((app_id, raft_space), (_, event))) = map.next() => {
                                 let signal = Signal::Raft(RaftSignal {
-                                    id: raft_id,
+                                    space: raft_space,
                                     event
                                 });
                                 if let Err(err) = app_broadcast.create_send_handle(app_id).send(signal) {
@@ -363,7 +364,7 @@ mod startup_shutdown_impls {
                         }
                     }
                 });
-                tx
+                tx_receivers
             };
 
             Self {
@@ -393,7 +394,7 @@ mod startup_shutdown_impls {
                 #[cfg(feature = "raft")]
                 rafts: Arc::new(Mutex::new(HashMap::new())),
                 #[cfg(feature = "raft")]
-                raft_signals: raft_signals_tx,
+                raft_signal_receiver_sender: raft_tx,
             }
         }
 

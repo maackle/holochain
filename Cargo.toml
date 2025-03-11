@@ -19,6 +19,7 @@ members = [
   "crates/holochain_conductor_api",
   "crates/holochain_p2p",
   "crates/holochain_keystore",
+  "crates/holochain_raft",
   "crates/holochain_state",
   "crates/holochain_state_types",
   "crates/holochain_sqlite",
@@ -60,7 +61,7 @@ members = [
   "crates/diagnostic_tests",
 ]
 
-exclude = ["crates/release-automation", "crates/holochain_raft"]
+exclude = ["crates/release-automation"]
 
 resolver = "2"
 
@@ -103,6 +104,9 @@ codegen-units = 16
 [profile.release]
 opt-level = "z"
 lto = true
+
+# [patch."https://github.com/maackle/p2p-raft"]
+# p2p-raft = { path = "/home/michael/proj/p2p-raft/crates/p2p-raft" }
 
 [patch.crates-io]
 # holochain_deepkey_dna = { path = "../deepkey/crates/holochain_deepkey_dna" }

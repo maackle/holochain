@@ -1,3 +1,4 @@
+use futures::SinkExt;
 use holochain_conductor_api::{
     LogOp, RaftInterfaceRequest, RaftInterfaceRequestPayload, RaftInterfaceResponsePayload,
 };
@@ -24,7 +25,7 @@ impl Conductor {
         &self,
         installed_app_id: InstalledAppId,
         dna_hash: DnaHash,
-        raft_id: RaftId,
+        raft_id: RaftSpace,
     ) -> Yacht {
         let provenance = crate::core::workflow::sys_validation_workflow::get_representative_agent(
             self, &dna_hash,
@@ -200,7 +201,7 @@ impl Conductor {
         installed_app_id: InstalledAppId,
         dna_hash: DnaHash,
         local_agent: AgentPubKey,
-        raft_id: RaftId,
+        raft_id: RaftSpace,
     ) -> Yacht {
         let yacht = {
             let mut rafts = self.rafts.lock().await;
@@ -228,12 +229,12 @@ impl Conductor {
         installed_app_id: InstalledAppId,
         dna_hash: DnaHash,
         local_agent: AgentPubKey,
-        raft_id: RaftId,
+        raft_space: RaftSpace,
     ) -> Yacht {
         let client = HcClient {
             provenance: local_agent.clone(),
             keystore: self.keystore().clone(),
-            raft_id: raft_id.clone(),
+            raft_space: raft_space.clone(),
             network: self.holochain_p2p().to_dna(dna_hash.clone(), None),
             raft: Arc::new(Mutex::new(None)),
         };
@@ -243,24 +244,20 @@ impl Conductor {
         let (signal_tx, signal_rx) = tokio::sync::mpsc::channel(100);
 
         let config = make_config();
-        let raft = holochain_raft::Dinghy::new_mem(
-            local_agent.clone().into(),
-            config,
-            client.clone(),
-            Some(signal_tx),
-        )
-        .await;
+        let raft_id = local_agent.clone().into();
+        let raft =
+            holochain_raft::Dinghy::new_mem(raft_id, config, client.clone(), Some(signal_tx)).await;
         *raft_lock.lock().await = Some(raft.clone());
 
         if let Err(err) = self
-            .raft_signals
-            .send((installed_app_id.clone(), raft_id, signal_rx))
+            .raft_signal_receiver_sender
+            .send((installed_app_id.clone(), raft_space, signal_rx))
             .await
         {
             tracing::warn!("raft signal receiver receiver dropped: {err:?}");
         }
 
-        let chore_task = tokio::spawn({ raft.clone().chore_loop() });
+        let chore_task = tokio::spawn(raft.clone().chore_loop());
 
         let cat = Catamaran {
             client,
@@ -268,11 +265,18 @@ impl Conductor {
             chore_task: Arc::new(chore_task),
         };
 
+        // let sink = {
+        //     let tx = self
+        //         .app_broadcast
+        //         .create_send_handle(installed_app_id.clone());
+        //     Box::new(
+        //         tokio_util::sync::PollSender::new(tx)
+        //             .with(|signal| futures::future::ok((raft_id, signal))),
+        //     )
+        // };
+
         Yacht {
             raft: cat,
-            signal_tx: self
-                .app_broadcast
-                .create_send_handle(installed_app_id.clone()),
             installed_app_id,
         }
     }
@@ -282,6 +286,5 @@ impl Conductor {
 pub struct Yacht {
     #[deref]
     pub raft: Catamaran,
-    pub signal_tx: tokio::sync::broadcast::Sender<Signal>,
     installed_app_id: InstalledAppId,
 }

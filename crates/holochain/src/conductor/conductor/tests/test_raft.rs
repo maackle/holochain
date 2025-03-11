@@ -13,26 +13,27 @@ async fn test_raft() {
     use std::collections::BTreeMap;
 
     use either::Either;
-    use holochain_conductor_api::AppResponse;
+    use holochain_conductor_api::{AppResponse, RaftSignal};
+    use holochain_raft::RaftEvent;
     use holochain_types::websocket::AllowedOrigins;
     use holochain_websocket::ReceiveMessage;
 
     holochain_trace::test_run();
 
-    tokio::spawn(async move {
-        let mut t = 0;
-        let mut interval = tokio::time::interval(Duration::from_secs(1));
-        loop {
-            interval.tick().await;
-            t += 1;
-            println!("     t = {t}");
-        }
-    });
+    // tokio::spawn(async move {
+    //     let mut t = 0;
+    //     let mut interval = tokio::time::interval(Duration::from_secs(1));
+    //     loop {
+    //         interval.tick().await;
+    //         t += 1;
+    //         println!("     t = {t}");
+    //     }
+    // });
 
-    let num = 5;
-    let raft_id: RaftId = EntryHash::from_raw_32(vec![55; 32]).into();
+    const NUM: usize = 5;
+    let raft_id: RaftSpace = EntryHash::from_raw_32(vec![55; 32]).into();
     let config = SweetConductorConfig::standard();
-    let mut conductors = SweetConductorBatch::from_config(num, config).await;
+    let mut conductors = SweetConductorBatch::from_config(NUM, config).await;
 
     let (dna_file, _, _) = SweetDnaFile::unique_from_test_wasms(vec![TestWasm::Anchor]).await;
     let dna_hash = dna_file.dna_hash().clone();
@@ -50,34 +51,27 @@ async fn test_raft() {
             .unwrap();
         ports.push(port);
     }
+    dbg!(&ports);
 
     // let port = conductors[0].list_app_interfaces().await.unwrap()[0]
     //     .clone()
     //     .port;
 
-    let sigs = Arc::new(Mutex::new(Vec::new()));
+    let signals = Arc::new(Mutex::new(Vec::new()));
 
-    let print_sigs = || async {
-        let sigs = sigs.lock().await.clone();
-        let mut m = BTreeMap::new();
-        for (i, _s) in sigs {
-            let e = m.entry(i).or_insert(0);
-            *e += 1;
-        }
-        m
-    };
-
-    for i in 0..num {
+    for i in 0..NUM {
         let admin_port = conductors[i].get_arbitrary_admin_websocket_port().unwrap();
+        dbg!(admin_port);
         let _task = {
             let (tx, mut rx) = websocket_client_by_port(ports[i]).await.unwrap();
             authenticate_app_ws_client(tx, admin_port, app_id.clone()).await;
-            let sigs = sigs.clone();
+            let sigs = signals.clone();
             tokio::task::spawn(async move {
                 while let Ok(r) = rx.recv::<AppResponse>().await {
                     match r {
                         ReceiveMessage::Signal(s) => {
                             let signal = Signal::try_from_vec(s).unwrap();
+                            println!(">>> SIGNAL {i:3}  {signal:?}");
                             sigs.lock().await.push((i, signal));
                         }
                         _ => {}
@@ -129,7 +123,7 @@ async fn test_raft() {
 
     dbg!();
 
-    for i in 1..num {
+    for i in 1..NUM {
         // All known peers up to this point
         let peers = cells
             .iter()
@@ -170,10 +164,8 @@ async fn test_raft() {
     // Wait for all clusters to agree on a leader
     let leader_index = await_leader(conductors.iter(), &cells, &app_id, &raft_id, None).await;
 
-    dbg!();
-
     // Let each node propose an op
-    for i in 0..num {
+    for i in 0..NUM {
         conductors[i]
             .handle_raft_interface_call(
                 app_id.clone(),
@@ -189,16 +181,12 @@ async fn test_raft() {
 
     println!("wrote data");
 
-    dbg!(print_sigs().await);
-
     // Make more than half of the conductors crash
-    for i in 0..(num + 1) / 2 {
+    for i in 0..(NUM + 1) / 2 {
         conductors[i].shutdown().await;
         println!("SHUTDOWN {i}");
         await_partition_stability(&rafts[i + 1..]).await;
     }
-
-    dbg!(print_sigs().await);
 
     // Wait for the survivors to agree on a new leader
     let leader2 = await_leader(
@@ -213,7 +201,7 @@ async fn test_raft() {
     assert_ne!(leader_index, leader2);
 
     // Check that all ops are still retrievable by the remaining voters
-    for i in 0..num {
+    for i in 0..NUM {
         if i == leader_index || !conductors[i].is_running() {
             continue;
         }
@@ -228,13 +216,13 @@ async fn test_raft() {
 
         assert_eq!(
             ops.unwrap_user_log_entries().len(),
-            num,
+            NUM,
             "agent {i} can't get all the ops"
         );
     }
 
     // Make the crashed conductors come back
-    for i in 0..(num + 1) / 2 {
+    for i in 0..(NUM + 1) / 2 {
         conductors[i].startup().await;
     }
 
@@ -245,15 +233,45 @@ async fn test_raft() {
     }))
     .await;
 
-    dbg!(print_sigs().await);
-
     await_partition_stability(&rafts).await;
 
-    dbg!(print_sigs().await);
+    {
+        // let mut m = BTreeMap::new();
+        let mut ss = signals.lock().await.clone();
+        ss.sort();
+        let sorted = ss.clone();
+        ss.dedup();
+        assert_eq!(sorted, ss, "duplicate signals found.");
+
+        println!("\n\n<><><><><><><><><> SIGNALS <><><><><><><><><>");
+        for (i, s) in ss {
+            match s {
+                Signal::Raft(RaftSignal { space: _, event }) => match event {
+                    RaftEvent::EntryCommitted { log_id, data } => {
+                        println!("COMMITTED  {:3}: {:3} {:?}", i, log_id.index, data);
+                    }
+                    RaftEvent::MembershipChanged { log_id, members } => {
+                        println!(
+                            "MEMBERSHIP {:3}: {:3} {:?}",
+                            i,
+                            log_id.index,
+                            members.iter().map(|m| m.agent().suffix(4)).collect_vec()
+                        );
+                    }
+                },
+                _ => unreachable!(),
+            }
+        }
+        println!("<><><><><><><><><>>>>>X<<<<<><><><><><><><><>\n\n");
+        // for (i, _s) in ss {
+        //     let e = m.entry(i).or_insert(0);
+        //     *e += 1;
+        // }
+    };
 
     // Check that all conductors are voters
-    for i in 0..num {
-        for j in 0..num {
+    for i in 0..NUM {
+        for j in 0..NUM {
             if i != j {
                 assert!(
                     rafts[i].is_voter(&rafts[j].id).await.unwrap(),
@@ -269,7 +287,7 @@ async fn await_leader(
     batch: impl IntoIterator<Item = &SweetConductor>,
     cells: impl IntoIterator<Item = &SweetCell>,
     app_id: &InstalledAppId,
-    raft_id: &RaftId,
+    raft_id: &RaftSpace,
     not_this_one: Option<usize>,
 ) -> usize {
     let batch = batch.into_iter().collect_vec();

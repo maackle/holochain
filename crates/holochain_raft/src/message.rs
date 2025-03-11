@@ -8,7 +8,7 @@ use crate::HcrTypes;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RpcRequestEnvelope {
-    pub raft_id: crate::RaftId,
+    pub raft_id: crate::RaftSpace,
     pub payload: RpcRequest,
 }
 

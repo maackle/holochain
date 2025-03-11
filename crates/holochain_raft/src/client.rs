@@ -8,13 +8,13 @@ use openraft::error::{ClientWriteError, RaftError};
 use p2p_raft::Dinghy;
 use tokio::sync::Mutex;
 
-use crate::RaftId;
+use crate::RaftSpace;
 
 #[derive(Clone)]
 pub struct HcClient {
     pub provenance: AgentPubKey,
     pub network: HolochainP2pDna,
-    pub raft_id: RaftId,
+    pub raft_space: RaftSpace,
     pub keystore: MetaLairClient,
     // XXX: circular reference, raft must be passed in after this is passed to raft
     pub raft: Arc<Mutex<Option<Dinghy<HcrTypes, HcClient>>>>,
@@ -81,7 +81,7 @@ impl HcClient {
         let cell_id = CellId::new(dna_hash, target.clone());
 
         let payload = ExternIO::encode(RpcRequestEnvelope {
-            raft_id: self.raft_id.clone(),
+            raft_id: self.raft_space.clone(),
             payload: message,
         })?;
 

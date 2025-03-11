@@ -44,6 +44,7 @@ pretty_assertions = "1.4"
 workspace = true
 
 [features]
+default = ["raft"]
 chc = []
 raft = ["holochain_raft"]
 unstable-dpki = []

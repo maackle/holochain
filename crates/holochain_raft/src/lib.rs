@@ -51,13 +51,15 @@ impl Catamaran {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub struct RaftId {
+#[derive(
+    Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, PartialOrd, Ord,
+)]
+pub struct RaftSpace {
     pub workspace: holo_hash::EntryHash,
     // pub fork_id: Option<RaftForkId>,
 }
 
-impl From<holo_hash::EntryHash> for RaftId {
+impl From<holo_hash::EntryHash> for RaftSpace {
     fn from(workspace: holo_hash::EntryHash) -> Self {
         Self {
             workspace,
