@@ -1,17 +1,121 @@
 use std::{collections::BTreeSet, time::Duration};
 
-use holochain_conductor_api::{RaftInterfaceRequest, RaftInterfaceRequestPayload};
-use holochain_raft::{Dinghy, RaftOp};
+use holochain_conductor_api::{
+    AppRequest, AppResponse, LogOp, RaftInterfaceRequest, RaftInterfaceRequestPayload,
+    RaftInterfaceResponse, RaftInterfaceResponsePayload, RaftSignal,
+};
+use holochain_raft::{
+    error::{ClientWriteError, ForwardToLeader, RaftError},
+    Dinghy, LeaderId, LogId, RaftEvent, RaftOp,
+};
 use holochain_wasm_test_utils::TestWasm;
-use p2p_raft::testing::await_partition_stability;
+use p2p_raft::{message::P2pError, testing::await_partition_stability};
 
 use super::*;
 
 #[tokio::test(flavor = "multi_thread")]
+async fn serialize_raft_types() {
+    let agents = vec![AgentPubKey::from_raw_32(vec![11; 32])];
+    let request_payloads = [
+        RaftInterfaceRequestPayload::Initialize(agents.clone()),
+        RaftInterfaceRequestPayload::Join(agents.clone()),
+        RaftInterfaceRequestPayload::Leave,
+        RaftInterfaceRequestPayload::Propose(RaftOp::from(vec![1, 2, 3])),
+        RaftInterfaceRequestPayload::GetUserLogEntries(Some(42)),
+    ];
+
+    let response_payloads = [
+        RaftInterfaceResponsePayload::UserLogEntries(vec![LogOp {
+            log_id: LogId {
+                index: 42,
+                leader_id: Default::default(),
+            },
+            op: RaftOp::from(vec![1, 2, 3]),
+        }]),
+        RaftInterfaceResponsePayload::Ok,
+        RaftInterfaceResponsePayload::Error(holochain_raft::message::P2pResponse::RaftError(
+            RaftError::APIError(ClientWriteError::ForwardToLeader(ForwardToLeader {
+                leader_id: Some(AgentPubKey::from_raw_32(vec![11; 32]).into()),
+                leader_node: Some(()),
+            })),
+        )),
+        RaftInterfaceResponsePayload::Error(holochain_raft::message::P2pResponse::P2pError(
+            P2pError::NotVoter,
+        )),
+    ];
+
+    let signals = [RaftEvent::EntryCommitted {
+        log_id: LogId {
+            index: 42,
+            leader_id: Default::default(),
+        },
+        data: vec![1, 2, 3].into(),
+    }];
+
+    let mut errors = vec![];
+
+    println!();
+    println!("REQUESTS");
+    println!("--------");
+    for p in request_payloads {
+        let r = AppRequest::Raft(RaftInterfaceRequest {
+            dna_hash: DnaHash::from_raw_32(vec![22; 32]),
+            raft_space: EntryHash::from_raw_32(vec![33; 32]).into(),
+            payload: p,
+        });
+        // let serialized = serde_json::to_string_pretty(&r).unwrap();
+        let serialized = serde_json::to_string(&r).unwrap();
+        let deserialized: AppRequest = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(format!("{r:?}"), format!("{deserialized:?}"));
+        println!("{}", serialized);
+    }
+
+    println!();
+    println!("RESPONSES");
+    println!("---------");
+    for p in response_payloads {
+        let r = AppResponse::Raft(p);
+        // let serialized = serde_json::to_string_pretty(&r).unwrap();
+        let serialized = serde_json::to_string(&r).unwrap();
+        let deserialized: AppResponse = serde_json::from_str(&serialized).unwrap();
+
+        let (left, right) = (format!("{r:?}"), format!("{deserialized:?}"));
+        if left != right {
+            // Some serialization fails because HcrTypes::Node = (), and Some(()) deserializes to None
+            errors.push(format!(
+                "NOTE: deserialization is different:\nLEFT:  {left}\nRIGHT: {right}"
+            ));
+        }
+
+        println!("{}", serialized);
+    }
+
+    println!();
+    println!("SIGNALS");
+    println!("--------");
+    for e in signals {
+        let s = Signal::Raft(RaftSignal {
+            space: EntryHash::from_raw_32(vec![33; 32]).into(),
+            event: e,
+        });
+        let serialized = serde_json::to_string(&s).unwrap();
+        let deserialized: Signal = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(format!("{s:?}"), format!("{deserialized:?}"));
+
+        println!("{}", serialized);
+    }
+
+    println!();
+    println!("ERRORS");
+    println!("------");
+    for e in errors {
+        println!("{e}");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "slow_tests")]
 async fn test_raft() {
-    use std::collections::BTreeMap;
-
     use either::Either;
     use holochain_conductor_api::{AppResponse, RaftSignal};
     use holochain_raft::RaftEvent;
@@ -90,7 +194,7 @@ async fn test_raft() {
 
     let mk_payload = |payload| RaftInterfaceRequest {
         dna_hash: dna_hash.clone(),
-        raft_id: raft_id.clone(),
+        raft_space: raft_id.clone(),
         payload,
     };
 

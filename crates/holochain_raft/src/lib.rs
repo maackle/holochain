@@ -14,6 +14,7 @@ pub use openraft::{Config, Entry, EntryPayload, LogId, RaftLogReader};
 pub use p2p_raft::DinghyConfig;
 use tokio::task::JoinHandle;
 
+pub type LeaderId = openraft::impls::leader_id_adv::LeaderId<HcrTypes>;
 pub type Dinghy = p2p_raft::Dinghy<HcrTypes, HcClient>;
 pub type RaftEvent = p2p_raft::signal::RaftEvent<HcrTypes>;
 

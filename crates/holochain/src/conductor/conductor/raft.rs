@@ -1,4 +1,3 @@
-use futures::SinkExt;
 use holochain_conductor_api::{
     LogOp, RaftInterfaceRequest, RaftInterfaceRequestPayload, RaftInterfaceResponsePayload,
 };
@@ -102,7 +101,7 @@ impl Conductor {
                 installed_app_id,
                 dna_hash.clone(),
                 local_agent.clone(),
-                raft_call.raft_id,
+                raft_call.raft_space,
             )
             .await
             .raft;
@@ -162,16 +161,6 @@ impl Conductor {
                     r => Ok(RaftInterfaceResponsePayload::Error(r)),
                 }
             }
-            RaftInterfaceRequestPayload::GetAllLogEntries(index) => {
-                let mut reader = raft.store.get_log_reader().await;
-                let entries = if let Some(index) = index {
-                    reader.try_get_log_entries(index..).await
-                } else {
-                    reader.try_get_log_entries(..).await
-                }
-                .map_err(|e| ConductorError::other(e.to_string()))?;
-                Ok(RaftInterfaceResponsePayload::AllLogEntries(entries))
-            }
             RaftInterfaceRequestPayload::GetUserLogEntries(index) => {
                 let mut reader = raft.store.get_log_reader().await;
 
@@ -192,7 +181,16 @@ impl Conductor {
                 .collect();
 
                 Ok(RaftInterfaceResponsePayload::UserLogEntries(entries))
-            }
+            } // RaftInterfaceRequestPayload::GetAllLogEntries(index) => {
+              //     let mut reader = raft.store.get_log_reader().await;
+              //     let entries = if let Some(index) = index {
+              //         reader.try_get_log_entries(index..).await
+              //     } else {
+              //         reader.try_get_log_entries(..).await
+              //     }
+              //     .map_err(|e| ConductorError::other(e.to_string()))?;
+              //     Ok(RaftInterfaceResponsePayload::AllLogEntries(entries))
+              // }
         }
     }
 

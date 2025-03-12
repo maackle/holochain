@@ -1,4 +1,4 @@
-use holochain_raft::{HcrTypes, RaftSpace, RaftOp};
+use holochain_raft::{HcrTypes, RaftOp, RaftSpace};
 
 use super::*;
 
@@ -7,7 +7,7 @@ pub struct RaftInterfaceRequest {
     /// Hash of the network which contains the peers to sync with, e.g. `syn`
     pub dna_hash: DnaHash,
     /// A new raft instance is created for each workspace
-    pub raft_id: RaftSpace,
+    pub raft_space: RaftSpace,
     /// The actual request
     pub payload: RaftInterfaceRequestPayload,
 }
@@ -31,10 +31,10 @@ pub enum RaftInterfaceRequestPayload {
     Leave,
     /// Propose an operation to the raft network
     Propose(RaftOp),
-    /// Get log entries after the given log id
-    GetAllLogEntries(Option<u64>),
     /// Get user-created log entries after the given log id
     GetUserLogEntries(Option<u64>),
+    // /// Get log entries after the given log id
+    // GetAllLogEntries(Option<u64>),
 }
 
 #[derive(
@@ -48,7 +48,7 @@ pub enum RaftInterfaceRequestPayload {
 )]
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
 pub enum RaftInterfaceResponsePayload {
-    AllLogEntries(Vec<holochain_raft::Entry<HcrTypes>>),
+    // AllLogEntries(Vec<holochain_raft::Entry<HcrTypes>>),
     UserLogEntries(Vec<LogOp>),
     Ok,
     Error(holochain_raft::message::P2pResponse),

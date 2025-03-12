@@ -44,17 +44,17 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Instant;
 
+use futures::future;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
 use futures::stream::StreamExt;
-use futures::{future, Sink, Stream};
 use holochain_raft::RaftSpace;
 #[cfg(feature = "wasmer_sys")]
 use holochain_wasmer_host::module::ModuleCache;
 use itertools::Itertools;
 use raft::Yacht;
 use rusqlite::Transaction;
-use tokio::sync::mpsc::error::{SendError, TrySendError};
+use tokio::sync::mpsc::error::SendError;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::ReceiverStream;
