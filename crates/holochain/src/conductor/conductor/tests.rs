@@ -1,5 +1,6 @@
 use holo_hash::fixt::AgentPubKeyFixturator;
 use holo_hash::fixt::DnaHashFixturator;
+use kitsune_p2p::HostStub;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
@@ -62,6 +63,7 @@ async fn can_update_state() {
         spaces,
         post_commit_sender,
         outcome_tx,
+        HostStub::new(),
     );
     let state = conductor.get_state().await.unwrap();
     let mut expect_state = ConductorState::default();
@@ -118,6 +120,7 @@ async fn app_ids_are_unique() {
         spaces,
         post_commit_sender,
         outcome_tx,
+        HostStub::new(),
     );
 
     let cell_id = fake_cell_id(1);

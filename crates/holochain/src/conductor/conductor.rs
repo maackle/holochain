@@ -52,6 +52,7 @@ use futures::stream::StreamExt;
 use holochain_wasmer_host::module::ModuleCache;
 use indexmap::IndexMap;
 use itertools::Itertools;
+use kitsune_p2p::KitsuneHost;
 use rusqlite::Transaction;
 use tokio::sync::mpsc::error::SendError;
 use tokio::task::JoinHandle;
@@ -281,6 +282,9 @@ pub struct Conductor {
 
     /// Container to connect app signals to app interfaces, by installed app id.
     app_broadcast: AppBroadcast,
+
+    /// The interface for (some of) the kitsune calls.
+    pub kitsune_host: Arc<dyn KitsuneHost>,
 }
 
 impl Conductor {
@@ -310,6 +314,7 @@ mod startup_shutdown_impls {
             spaces: Spaces,
             post_commit: tokio::sync::mpsc::Sender<PostCommitArgs>,
             outcome_sender: OutcomeSender,
+            kitsune_host: Arc<dyn KitsuneHost>,
         ) -> Self {
             let tracing_scope = config.tracing_scope().unwrap_or_default();
             let maybe_data_root_path = config.data_root_path.clone().map(|path| (*path).clone());
@@ -345,6 +350,7 @@ mod startup_shutdown_impls {
                 wasmer_module_cache: None,
                 app_auth_token_store: RwShare::default(),
                 app_broadcast: AppBroadcast::default(),
+                kitsune_host,
             }
         }
 

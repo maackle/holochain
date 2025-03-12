@@ -226,7 +226,7 @@ impl ConductorBuilder {
 
         let strat = network_config.tuning_params.to_arq_strat();
 
-        let host = KitsuneHostImpl::new(
+        let kitsune_host = KitsuneHostImpl::new(
             spaces.clone(),
             config.clone(),
             ribosome_store.clone(),
@@ -265,7 +265,7 @@ impl ConductorBuilder {
         let (holochain_p2p, p2p_evt) = match holochain_p2p::spawn_holochain_p2p(
             network_config,
             tls_config,
-            host,
+            kitsune_host.clone(),
             network_compat,
         )
         .await
@@ -292,6 +292,7 @@ impl ConductorBuilder {
             spaces,
             post_commit_sender,
             outcome_tx,
+            kitsune_host,
         );
 
         let shutting_down = conductor.shutting_down.clone();
@@ -498,7 +499,7 @@ impl ConductorBuilder {
         let strat = network_config.tuning_params.to_arq_strat();
 
         let ribosome_store = RwShare::new(builder.ribosome_store);
-        let host = KitsuneHostImpl::new(
+        let kitsune_host = KitsuneHostImpl::new(
             spaces.clone(),
             config.clone(),
             ribosome_store.clone(),
@@ -539,7 +540,7 @@ impl ConductorBuilder {
         let network_compat = NetworkCompatParams { dpki_uuid };
 
         let (holochain_p2p, p2p_evt) =
-                holochain_p2p::spawn_holochain_p2p(network_config, holochain_p2p::kitsune_p2p::dependencies::kitsune_p2p_types::tls::TlsConfig::new_ephemeral().await.unwrap(), host, network_compat)
+                holochain_p2p::spawn_holochain_p2p(network_config, holochain_p2p::kitsune_p2p::dependencies::kitsune_p2p_types::tls::TlsConfig::new_ephemeral().await.unwrap(), kitsune_host.clone(), network_compat)
                     .await?;
 
         let (post_commit_sender, post_commit_receiver) =
@@ -555,6 +556,7 @@ impl ConductorBuilder {
             spaces,
             post_commit_sender,
             outcome_tx,
+            kitsune_host,
         );
 
         let conductor = Self::update_fake_state(builder.state, conductor).await?;
