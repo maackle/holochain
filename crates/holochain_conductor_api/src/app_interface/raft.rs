@@ -21,7 +21,6 @@ pub struct RaftInterfaceResponse {
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, SerializedBytes)]
-#[serde(tag = "type", content = "value", rename_all = "snake_case")]
 pub enum RaftInterfaceRequestPayload {
     /// Initialize the raft network with the provided peers
     Initialize(Vec<AgentPubKey>),
@@ -46,7 +45,6 @@ pub enum RaftInterfaceRequestPayload {
     SerializedBytes,
     derive_more::Unwrap,
 )]
-#[serde(tag = "type", content = "value", rename_all = "snake_case")]
 pub enum RaftInterfaceResponsePayload {
     // AllLogEntries(Vec<holochain_raft::Entry<HcrTypes>>),
     UserLogEntries(Vec<LogOp>),
