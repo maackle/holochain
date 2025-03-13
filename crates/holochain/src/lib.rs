@@ -50,6 +50,10 @@ pub mod prelude {
 
     pub use holochain_types::prelude::{fixt, *};
 
+    pub use kitsune_p2p;
+
+    pub use holochain_wasm_test_utils::TestWasm;
+
     #[cfg(feature = "fuzzing")]
     pub use kitsune_p2p::{NOISE, *};
 
