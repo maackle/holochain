@@ -5,10 +5,10 @@ use holochain_raft::{message::*, *};
 
 use super::*;
 
-fn make_config() -> DinghyConfig {
-    DinghyConfig {
+fn make_config() -> p2p_raft::Config {
+    p2p_raft::Config {
         p2p_config: Default::default(),
-        raft_config: Config {
+        raft_config: OpenraftConfig {
             heartbeat_interval: 500,
             election_timeout_min: 1500,
             election_timeout_max: 3000,
@@ -244,7 +244,8 @@ impl Conductor {
         let config = make_config();
         let raft_id = local_agent.clone().into();
         let raft =
-            holochain_raft::Dinghy::new_mem(raft_id, config, client.clone(), Some(signal_tx)).await;
+            holochain_raft::P2pRaft::new_mem(raft_id, config, client.clone(), Some(signal_tx))
+                .await;
         *raft_lock.lock().await = Some(raft.clone());
 
         if let Err(err) = self

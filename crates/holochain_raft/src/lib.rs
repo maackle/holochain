@@ -9,13 +9,13 @@ use holo_hash::AgentPubKey;
 
 pub use openraft::error;
 pub use openraft::storage::RaftLogStorage;
-pub use openraft::{Config, Entry, EntryPayload, LogId, RaftLogReader};
+pub use openraft::{Config as OpenraftConfig, Entry, EntryPayload, LogId, RaftLogReader};
 
-pub use p2p_raft::DinghyConfig;
+pub use p2p_raft::Config;
 use tokio::task::JoinHandle;
 
 pub type LeaderId = openraft::impls::leader_id_adv::LeaderId<HcrTypes>;
-pub type Dinghy = p2p_raft::Dinghy<HcrTypes, HcClient>;
+pub type P2pRaft = p2p_raft::P2pRaft<HcrTypes, HcClient>;
 pub type RaftEvent = p2p_raft::signal::RaftEvent<HcrTypes>;
 
 openraft::declare_raft_types!(
@@ -32,11 +32,11 @@ impl p2p_raft::TypeCfg for HcrTypes {}
 
 /// State for a raft instance in the conductor.
 ///
-/// A step up from a Dinghy.
+/// A step up from a P2pRaft.
 #[derive(Clone)]
 pub struct Catamaran {
     /// The raft instance
-    pub raft: Dinghy,
+    pub raft: P2pRaft,
     /// The client for making remote calls to other conductors' rafts
     pub client: HcClient,
 

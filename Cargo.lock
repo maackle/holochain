@@ -573,9 +573,9 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "base64ct"
-version = "1.7.1"
+version = "1.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb97d56060ee67d285efb8001fec9d2a4c710c32efd2e14b5cbb5ba71930fc2d"
+checksum = "8faa168b8c4ffca39c2699e772943af41ec2b75fb1683dda07b28a6d285c53dc"
 
 [[package]]
 name = "bimap"
@@ -1529,9 +1529,9 @@ dependencies = [
 
 [[package]]
 name = "cxx"
-version = "1.0.143"
+version = "1.0.144"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "050906babad73f9b32a91cecc3063ff1e2235226dd2367dd839fd6fbc941c68a"
+checksum = "4615b1496a78e2c624b792d982e5d2152db2e5b53d401605776ec819e50891ce"
 dependencies = [
  "cc",
  "cxxbridge-cmd",
@@ -1543,9 +1543,9 @@ dependencies = [
 
 [[package]]
 name = "cxx-build"
-version = "1.0.143"
+version = "1.0.144"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "875d58f2ac56025a775b91a424515b5adf1e68205765f2c90e6dd81e269ae004"
+checksum = "147bafb46dc3ad9d24717723751371147373ffa8cf5f816e0031e34d6998b339"
 dependencies = [
  "cc",
  "codespan-reporting",
@@ -1557,9 +1557,9 @@ dependencies = [
 
 [[package]]
 name = "cxxbridge-cmd"
-version = "1.0.143"
+version = "1.0.144"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19c3062da294104183e1c34ea9887941d4d8c74f6195ce9fbb430ac4b5290ede"
+checksum = "07d4631e3095af42e8de3c73ee2b7d49fe541578ccd9f6b19920ac3c5fef528c"
 dependencies = [
  "clap 4.5.32",
  "codespan-reporting",
@@ -1570,15 +1570,15 @@ dependencies = [
 
 [[package]]
 name = "cxxbridge-flags"
-version = "1.0.143"
+version = "1.0.144"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4b358173a166833ddef75fe468579f71727c789b8082d4cc77c38d08f656c59"
+checksum = "f05c4a04df781bb50f52a16cfd7c580d0d904af8e7c411678be52d84ed3416ab"
 
 [[package]]
 name = "cxxbridge-macro"
-version = "1.0.143"
+version = "1.0.144"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9531217f3b5f7728244d2b7312bc6660f6b3e4cdbc118f4f1fbce48cb401a0f"
+checksum = "93be4a484f2b719c2cb56ab5f06e05377987477c7b3bf7a1cf28a266ec8cfaa1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3001,7 +3001,7 @@ dependencies = [
  "rand-utf8",
  "rand_chacha 0.3.1",
  "regex",
- "reqwest 0.12.13",
+ "reqwest 0.12.14",
  "rusqlite",
  "sbd-server",
  "sd-notify",
@@ -3087,7 +3087,7 @@ dependencies = [
  "one_err",
  "parking_lot 0.12.3",
  "pretty_assertions",
- "reqwest 0.12.13",
+ "reqwest 0.12.14",
  "serde",
  "serde_bytes",
  "serde_json",
@@ -4268,7 +4268,7 @@ dependencies = [
  "hex",
  "hex-literal",
  "influxive-core",
- "reqwest 0.12.13",
+ "reqwest 0.12.14",
  "sha2",
  "tar",
  "tempfile",
@@ -4610,7 +4610,7 @@ dependencies = [
  "kitsune_p2p_types",
  "parking_lot 0.12.3",
  "rand 0.8.5",
- "reqwest 0.12.13",
+ "reqwest 0.12.14",
  "serde",
  "serde_bytes",
  "thiserror 1.0.69",
@@ -4630,7 +4630,7 @@ dependencies = [
  "kitsune_p2p_bootstrap_client",
  "kitsune_p2p_types",
  "rand 0.8.5",
- "reqwest 0.12.13",
+ "reqwest 0.12.14",
  "serde",
  "serde_bytes",
  "tokio",
@@ -5273,7 +5273,7 @@ dependencies = [
  "matches",
  "proptest",
  "proptest-derive 0.5.1",
- "reqwest 0.12.13",
+ "reqwest 0.12.14",
  "rmp-serde",
  "serde",
  "serde_bytes",
@@ -5657,7 +5657,7 @@ checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 [[package]]
 name = "openraft"
 version = "0.10.0"
-source = "git+https://github.com/databendlabs/openraft.git#96173030acd39811d381413cfdaf8c1e13ac453b"
+source = "git+https://github.com/databendlabs/openraft.git#2d060895cf78815980bef5b8b761eb167e67b35c"
 dependencies = [
  "anyerror",
  "byte-unit",
@@ -5667,7 +5667,7 @@ dependencies = [
  "futures",
  "maplit",
  "openraft-macros",
- "rand 0.8.5",
+ "rand 0.9.0",
  "serde",
  "thiserror 1.0.69",
  "tokio",
@@ -5679,7 +5679,7 @@ dependencies = [
 [[package]]
 name = "openraft-macros"
 version = "0.10.0"
-source = "git+https://github.com/databendlabs/openraft.git#96173030acd39811d381413cfdaf8c1e13ac453b"
+source = "git+https://github.com/databendlabs/openraft.git#2d060895cf78815980bef5b8b761eb167e67b35c"
 dependencies = [
  "chrono",
  "proc-macro2",
@@ -5691,7 +5691,7 @@ dependencies = [
 [[package]]
 name = "openraft-memstore"
 version = "0.10.0"
-source = "git+https://github.com/databendlabs/openraft.git#96173030acd39811d381413cfdaf8c1e13ac453b"
+source = "git+https://github.com/databendlabs/openraft.git#2d060895cf78815980bef5b8b761eb167e67b35c"
 dependencies = [
  "openraft",
  "serde",
@@ -5802,7 +5802,7 @@ dependencies = [
 [[package]]
 name = "p2p-raft"
 version = "0.1.0"
-source = "git+https://github.com/maackle/p2p-raft.git#83a416fb91ccd202b6dc509df082e5b3e9db3c59"
+source = "git+https://github.com/maackle/p2p-raft.git#0dc4e819e241109614153e8ce849effec83f2abe"
 dependencies = [
  "anyhow",
  "derive_more 1.0.0",
@@ -5825,7 +5825,7 @@ dependencies = [
 [[package]]
 name = "p2p-raft-memstore"
 version = "0.1.0"
-source = "git+https://github.com/maackle/p2p-raft.git#83a416fb91ccd202b6dc509df082e5b3e9db3c59"
+source = "git+https://github.com/maackle/p2p-raft.git#0dc4e819e241109614153e8ce849effec83f2abe"
 dependencies = [
  "derive_more 1.0.0",
  "openraft",
@@ -6368,9 +6368,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.39"
+version = "1.0.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1f1914ce909e1658d9907913b4b91947430c7d9be598b15a1912935b8c04801"
+checksum = "1885c039570dc00dcb4ff087a89e185fd56bae234ddc7f056a945bf36467248d"
 dependencies = [
  "proc-macro2",
 ]
@@ -6907,9 +6907,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.12.13"
+version = "0.12.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "389a89e494bbc88bebf30e23da98742c843863a16a352647716116aa71fae80a"
+checksum = "989e327e510263980e231de548a33e63d34962d29ae61b467389a1a09627a254"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -8437,9 +8437,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.44.0"
+version = "1.44.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9975ea0f48b5aa3972bf2d888c238182458437cc2a19374b81b25cdf1023fb3a"
+checksum = "f382da615b842244d4b8738c82ed1275e6c5dd90c459a30941cd07080b06c91a"
 dependencies = [
  "backtrace",
  "bytes",
@@ -8524,9 +8524,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.7.13"
+version = "0.7.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7fcaa8d55a2bdd6b83ace262b016eca0d79ee02818c5c1bcdf0305114081078"
+checksum = "6b9590b93e6fcc1739458317cccd391ad3955e2bde8913edf6f95f9e65a8f034"
 dependencies = [
  "bytes",
  "futures-core",
@@ -10041,9 +10041,9 @@ checksum = "271414315aff87387382ec3d271b52d7ae78726f5d44ac98b4f4030c91880486"
 
 [[package]]
 name = "winnow"
-version = "0.7.3"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e7f4ea97f6f78012141bcdb6a216b2609f0979ada50b20ca5b52dde2eac2bb1"
+checksum = "0e97b544156e9bebe1a0ffbc03484fc1ffe3100cbce3ffb17eac35f7cdd7ab36"
 dependencies = [
  "memchr",
 ]

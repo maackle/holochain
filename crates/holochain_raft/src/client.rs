@@ -5,7 +5,7 @@ use holochain_keystore::MetaLairClient;
 use holochain_p2p::{HolochainP2pDna, HolochainP2pDnaT};
 use holochain_types::prelude::*;
 use openraft::error::{ClientWriteError, RaftError};
-use p2p_raft::Dinghy;
+use p2p_raft::P2pRaft;
 use tokio::sync::Mutex;
 
 use crate::RaftSpace;
@@ -17,7 +17,7 @@ pub struct HcClient {
     pub raft_space: RaftSpace,
     pub keystore: MetaLairClient,
     // XXX: circular reference, raft must be passed in after this is passed to raft
-    pub raft: Arc<Mutex<Option<Dinghy<HcrTypes, HcClient>>>>,
+    pub raft: Arc<Mutex<Option<P2pRaft<HcrTypes, HcClient>>>>,
 }
 
 impl HcClient {
