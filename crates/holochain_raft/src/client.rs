@@ -12,7 +12,7 @@ use crate::RaftSpace;
 
 #[derive(Clone)]
 pub struct HcClient {
-    pub provenance: AgentPubKey,
+    pub local_agent: AgentPubKey,
     pub network: HolochainP2pDna,
     pub raft_space: RaftSpace,
     pub keystore: MetaLairClient,
@@ -23,7 +23,7 @@ pub struct HcClient {
 impl HcClient {
     pub async fn call_leader_with_retry(&self, message: RpcRequest) -> anyhow::Result<RpcResponse> {
         let retries = 3;
-        let mut target = self.provenance.clone();
+        let mut target = self.local_agent.clone();
         let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(3));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         for _ in 0..retries {
@@ -86,7 +86,7 @@ impl HcClient {
         })?;
 
         let zome_call_unsigned = ZomeCallUnsigned {
-            provenance: self.provenance.clone(),
+            provenance: self.local_agent.clone(),
             cell_id,
             zome_name: "raft-hardwired-hack".into(),
             fn_name: "raft-hardwired-hack".into(),
@@ -99,7 +99,7 @@ impl HcClient {
         Ok(self
             .network
             .call_remote(
-                self.provenance.clone(),
+                self.local_agent.clone(),
                 zome_call_unsigned
                     .provenance
                     .sign_raw(&self.keystore, zome_call_unsigned.data_to_sign()?)

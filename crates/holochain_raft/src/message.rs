@@ -12,8 +12,8 @@ pub struct RpcRequestEnvelope {
     pub payload: RpcRequest,
 }
 
-pub type RpcRequest = p2p_raft::message::RpcRequest<HcrTypes>;
-pub type RpcResponse = p2p_raft::message::RpcResponse<HcrTypes>;
+pub type RpcRequest = p2p_raft::message::Request<HcrTypes>;
+pub type RpcResponse = p2p_raft::message::Response<HcrTypes>;
 
 pub type P2pRequest = p2p_raft::message::P2pRequest<HcrTypes>;
 pub type P2pResponse = p2p_raft::message::P2pResponse<HcrTypes>;

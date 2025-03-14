@@ -36,19 +36,19 @@ impl RaftNetworkFactory<HcrTypes> for HcClient {
 }
 
 impl p2p_raft::network::P2pNetwork<HcrTypes> for HcClient {
+    fn local_node_id(&self) -> HcNode {
+        self.local_agent.clone().into()
+    }
+
     async fn send_p2p(
         &self,
-        _source: HcNode,
         target: HcNode,
         req: p2p_raft::message::P2pRequest<HcrTypes>,
-    ) -> Result<p2p_raft::message::P2pResponse<HcrTypes>, RPCError<HcrTypes>> {
-        match self.call(target.agent(), req.into()).await {
-            Ok(resp) => Ok(resp.unwrap_p_2_p()),
-            Err(e) => {
-                tracing::error!("{e:?}");
-                Err(RPCError::Unreachable(Unreachable::new(&AnyError::from(e))))
-            }
-        }
+    ) -> anyhow::Result<p2p_raft::message::P2pResponse<HcrTypes>> {
+        Ok(match self.call(target.agent(), req.into()).await? {
+            p2p_raft::message::Response::P2p(resp) => resp,
+            _ => anyhow::bail!("expected P2pResponse"),
+        })
     }
 }
 

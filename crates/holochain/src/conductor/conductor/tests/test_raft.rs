@@ -2,11 +2,11 @@ use std::{collections::BTreeSet, time::Duration};
 
 use holochain_conductor_api::{
     AppRequest, AppResponse, LogOp, RaftInterfaceRequest, RaftInterfaceRequestPayload,
-    RaftInterfaceResponse, RaftInterfaceResponsePayload, RaftSignal,
+    RaftInterfaceResponsePayload, RaftSignal,
 };
 use holochain_raft::{
     error::{ClientWriteError, ForwardToLeader, RaftError},
-    LeaderId, LogId, P2pRaft, RaftEvent, RaftOp,
+    LogId, P2pRaft, RaftEvent, RaftOp,
 };
 use holochain_wasm_test_utils::TestWasm;
 use p2p_raft::{message::P2pError, testing::await_partition_stability};
@@ -406,7 +406,7 @@ async fn await_leader(
     let start = std::time::Instant::now();
     loop {
         let mut leaders = BTreeSet::new();
-        for (cond, cell) in batch.iter().zip(cells.iter()) {
+        for (cond, _cell) in batch.iter().zip(cells.iter()) {
             if cond.is_running() {
                 let data = cond
                     .get_raft(app_id.clone(), dna_hash.clone(), raft_id.clone())
@@ -451,7 +451,7 @@ async fn await_leader(
     }
 }
 
-fn spawn_info_task(rafts: impl IntoIterator<Item = P2pRaft>) {
+pub fn spawn_info_task(rafts: impl IntoIterator<Item = P2pRaft>) {
     let rafts = rafts.into_iter().collect_vec();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_millis(1000));

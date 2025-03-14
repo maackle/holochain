@@ -62,7 +62,7 @@ impl Conductor {
         let res = data
             .raft
             .raft
-            .handle_request(remote_agent.clone().into(), request.payload)
+            .handle_rpc(remote_agent.clone().into(), request.payload)
             .await
             .map_err(|e| {
                 ConductorError::other(format!("TODO handle_incoming_request error: {e:?}"))
@@ -230,7 +230,7 @@ impl Conductor {
         raft_space: RaftSpace,
     ) -> Yacht {
         let client = HcClient {
-            provenance: local_agent.clone(),
+            local_agent: local_agent.clone(),
             keystore: self.keystore().clone(),
             raft_space: raft_space.clone(),
             network: self.holochain_p2p().to_dna(dna_hash.clone(), None),
@@ -243,9 +243,14 @@ impl Conductor {
 
         let config = make_config();
         let raft_id = local_agent.clone().into();
-        let raft =
-            holochain_raft::P2pRaft::new_mem(raft_id, config, client.clone(), Some(signal_tx))
-                .await;
+        let raft = holochain_raft::P2pRaft::new_mem(
+            raft_id,
+            config,
+            client.clone(),
+            Some(signal_tx),
+            |_| (),
+        )
+        .await;
         *raft_lock.lock().await = Some(raft.clone());
 
         if let Err(err) = self
