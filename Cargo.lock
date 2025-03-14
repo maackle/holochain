@@ -3382,7 +3382,7 @@ dependencies = [
  "holochain_types",
  "maplit",
  "once_cell",
- "openraft",
+ "openraft 0.10.0 (git+https://github.com/maackle/openraft?branch=adapt-v1-feature)",
  "p2p-raft",
  "rand 0.9.0",
  "rand_distr 0.5.1",
@@ -5657,6 +5657,27 @@ checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 [[package]]
 name = "openraft"
 version = "0.10.0"
+source = "git+https://github.com/maackle/openraft?branch=adapt-v1-feature#e272dc3407b2629422a504d21a50944497f1adb2"
+dependencies = [
+ "anyerror",
+ "byte-unit",
+ "chrono",
+ "clap 4.5.32",
+ "derive_more 1.0.0",
+ "futures",
+ "maplit",
+ "openraft-macros 0.10.0 (git+https://github.com/maackle/openraft?branch=adapt-v1-feature)",
+ "rand 0.9.0",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "tracing-futures",
+ "validit",
+]
+
+[[package]]
+name = "openraft"
+version = "0.10.0"
 source = "git+https://github.com/databendlabs/openraft.git#2d060895cf78815980bef5b8b761eb167e67b35c"
 dependencies = [
  "anyerror",
@@ -5666,7 +5687,7 @@ dependencies = [
  "derive_more 1.0.0",
  "futures",
  "maplit",
- "openraft-macros",
+ "openraft-macros 0.10.0 (git+https://github.com/databendlabs/openraft.git)",
  "rand 0.9.0",
  "serde",
  "thiserror 1.0.69",
@@ -5674,6 +5695,18 @@ dependencies = [
  "tracing",
  "tracing-futures",
  "validit",
+]
+
+[[package]]
+name = "openraft-macros"
+version = "0.10.0"
+source = "git+https://github.com/maackle/openraft?branch=adapt-v1-feature#e272dc3407b2629422a504d21a50944497f1adb2"
+dependencies = [
+ "chrono",
+ "proc-macro2",
+ "quote",
+ "semver",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -5693,7 +5726,7 @@ name = "openraft-memstore"
 version = "0.10.0"
 source = "git+https://github.com/databendlabs/openraft.git#2d060895cf78815980bef5b8b761eb167e67b35c"
 dependencies = [
- "openraft",
+ "openraft 0.10.0 (git+https://github.com/databendlabs/openraft.git)",
  "serde",
  "serde_json",
  "tokio",
@@ -5810,8 +5843,8 @@ dependencies = [
  "itertools 0.14.0",
  "maplit",
  "nanoid",
- "openraft",
- "openraft-macros",
+ "openraft 0.10.0 (git+https://github.com/databendlabs/openraft.git)",
+ "openraft-macros 0.10.0 (git+https://github.com/databendlabs/openraft.git)",
  "openraft-memstore",
  "p2p-raft-memstore",
  "parking_lot 0.12.3",
@@ -5828,7 +5861,7 @@ version = "0.1.0"
 source = "git+https://github.com/maackle/p2p-raft.git#0dc4e819e241109614153e8ce849effec83f2abe"
 dependencies = [
  "derive_more 1.0.0",
- "openraft",
+ "openraft 0.10.0 (git+https://github.com/databendlabs/openraft.git)",
  "serde",
  "tokio",
  "tracing",
