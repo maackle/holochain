@@ -16,6 +16,7 @@ use super::*;
 #[tokio::test(flavor = "multi_thread")]
 async fn serialize_raft_types() {
     let agents = vec![AgentPubKey::from_raw_32(vec![11; 32])];
+    let raft_space = RaftSpace::from("raft-space");
     let request_payloads = [
         RaftInterfaceRequestPayload::Initialize(agents.clone()),
         RaftInterfaceRequestPayload::Join(agents.clone()),
@@ -60,7 +61,7 @@ async fn serialize_raft_types() {
     for p in request_payloads {
         let r = AppRequest::Raft(RaftInterfaceRequest {
             dna_hash: DnaHash::from_raw_32(vec![22; 32]),
-            raft_space: EntryHash::from_raw_32(vec![33; 32]).into(),
+            raft_space: raft_space.clone(),
             payload: p,
         });
         // let serialized = serde_json::to_string_pretty(&r).unwrap();
@@ -95,7 +96,7 @@ async fn serialize_raft_types() {
     println!("--------");
     for e in signals {
         let s = Signal::Raft(RaftSignal {
-            space: EntryHash::from_raw_32(vec![33; 32]).into(),
+            space: raft_space.clone(),
             event: e,
         });
         let serialized = serde_json::to_string(&s).unwrap();
@@ -135,7 +136,7 @@ async fn test_raft() {
     // });
 
     const NUM: usize = 5;
-    let raft_id: RaftSpace = EntryHash::from_raw_32(vec![55; 32]).into();
+    let raft_space = RaftSpace::from("raft-space");
     let config = SweetConductorConfig::standard();
     let mut conductors = SweetConductorBatch::from_config(NUM, config).await;
 
@@ -194,12 +195,12 @@ async fn test_raft() {
 
     let mk_payload = |payload| RaftInterfaceRequest {
         dna_hash: dna_hash.clone(),
-        raft_space: raft_id.clone(),
+        raft_space: raft_space.clone(),
         payload,
     };
 
     let rafts = futures::future::join_all(conductors.iter().map(|c| {
-        c.get_raft(app_id.clone(), dna_hash.clone(), raft_id.clone())
+        c.get_raft(app_id.clone(), dna_hash.clone(), raft_space.clone())
             .map(|r| r.raft.raft)
     }))
     .await;
@@ -222,7 +223,8 @@ async fn test_raft() {
     dbg!();
 
     // wait for self-election
-    let leader_index = await_leader([&conductors[0]], [&cells[0]], &app_id, &raft_id, None).await;
+    let leader_index =
+        await_leader([&conductors[0]], [&cells[0]], &app_id, &raft_space, None).await;
     assert_eq!(leader_index, 0);
 
     dbg!();
@@ -266,7 +268,7 @@ async fn test_raft() {
     }
 
     // Wait for all clusters to agree on a leader
-    let leader_index = await_leader(conductors.iter(), &cells, &app_id, &raft_id, None).await;
+    let leader_index = await_leader(conductors.iter(), &cells, &app_id, &raft_space, None).await;
 
     // Let each node propose an op
     for i in 0..NUM {
@@ -297,7 +299,7 @@ async fn test_raft() {
         conductors.iter(),
         &cells,
         &app_id,
-        &raft_id,
+        &raft_space,
         Some(leader_index),
     )
     .await;
@@ -332,7 +334,7 @@ async fn test_raft() {
 
     // re-fetch the newly created rafts
     let rafts = futures::future::join_all(conductors.iter().map(|c| {
-        c.get_raft(app_id.clone(), dna_hash.clone(), raft_id.clone())
+        c.get_raft(app_id.clone(), dna_hash.clone(), raft_space.clone())
             .map(|r| r.raft.raft)
     }))
     .await;
@@ -397,7 +399,7 @@ async fn await_leader(
     batch: impl IntoIterator<Item = &SweetConductor>,
     cells: impl IntoIterator<Item = &SweetCell>,
     app_id: &InstalledAppId,
-    raft_id: &RaftSpace,
+    raft_space: &RaftSpace,
     not_this_one: Option<usize>,
 ) -> usize {
     let batch = batch.into_iter().collect_vec();
@@ -409,7 +411,7 @@ async fn await_leader(
         for (cond, _cell) in batch.iter().zip(cells.iter()) {
             if cond.is_running() {
                 let data = cond
-                    .get_raft(app_id.clone(), dna_hash.clone(), raft_id.clone())
+                    .get_raft(app_id.clone(), dna_hash.clone(), raft_space.clone())
                     .await;
                 let leader = data.raft.raft.current_leader().await.map(|l| l.agent());
                 leaders.insert(leader.clone());

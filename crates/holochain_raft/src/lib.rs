@@ -53,19 +53,23 @@ impl Catamaran {
 }
 
 #[derive(
-    Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, PartialOrd, Ord,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    derive_more::From,
+    derive_more::Deref,
+    serde::Serialize,
+    serde::Deserialize,
 )]
-pub struct RaftSpace {
-    pub workspace: holo_hash::EntryHash,
-    // pub fork_id: Option<RaftForkId>,
-}
+pub struct RaftSpace(String);
 
-impl From<holo_hash::EntryHash> for RaftSpace {
-    fn from(workspace: holo_hash::EntryHash) -> Self {
-        Self {
-            workspace,
-            // fork_id: None,
-        }
+impl From<&str> for RaftSpace {
+    fn from(s: &str) -> Self {
+        RaftSpace(s.to_string())
     }
 }
 
