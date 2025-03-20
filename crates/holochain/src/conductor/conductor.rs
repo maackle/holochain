@@ -431,7 +431,7 @@ mod startup_shutdown_impls {
             let rafts = self.rafts.clone();
             tokio::task::spawn(async move {
                 for raft in rafts.lock().await.values_mut() {
-                    if let Err(err) = raft.shutdown().await {
+                    if let Err(err) = raft.raft.raft.shutdown().await {
                         tracing::error!("error shutting down raft: {err:?}");
                     }
                 }

@@ -2,8 +2,6 @@ mod client;
 pub mod message;
 mod network;
 
-use std::sync::Arc;
-
 pub use client::HcClient;
 use holo_hash::AgentPubKey;
 
@@ -12,11 +10,11 @@ pub use openraft::storage::RaftLogStorage;
 pub use openraft::{Config as OpenraftConfig, Entry, EntryPayload, LogId, RaftLogReader};
 
 pub use p2p_raft::Config;
-use tokio::task::JoinHandle;
 
 pub type LeaderId = openraft::impls::leader_id_adv::LeaderId<HcrTypes>;
 pub type P2pRaft = p2p_raft::P2pRaft<HcrTypes, HcClient>;
 pub type RaftEvent = p2p_raft::signal::RaftEvent<HcrTypes>;
+pub type LogOp = p2p_raft::LogOp<HcrTypes>;
 
 openraft::declare_raft_types!(
     #[derive(serde::Serialize, serde::Deserialize)]
@@ -25,7 +23,7 @@ openraft::declare_raft_types!(
         R = (),
         NodeId = HcNode,
         Node = (),
-        SnapshotData = p2p_raft::StateMachineData<HcrTypes>,
+        SnapshotData = p2p_raft::StateMachineData<Self>,
 );
 
 impl p2p_raft::TypeCfg for HcrTypes {}
@@ -39,17 +37,6 @@ pub struct Catamaran {
     pub raft: P2pRaft,
     /// The client for making remote calls to other conductors' rafts
     pub client: HcClient,
-
-    /// The task that runs the raft chore loop, including
-    /// auto-rejoin logic and signal emission.
-    pub chore_task: Arc<JoinHandle<()>>,
-}
-
-impl Catamaran {
-    pub async fn shutdown(&self) -> Result<(), tokio::task::JoinError> {
-        self.chore_task.abort();
-        self.raft.shutdown().await
-    }
 }
 
 #[derive(

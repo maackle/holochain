@@ -1,4 +1,4 @@
-use holochain_raft::{HcrTypes, RaftOp, RaftSpace};
+use holochain_raft::{RaftOp, RaftSpace};
 
 use super::*;
 
@@ -47,13 +47,7 @@ pub enum RaftInterfaceRequestPayload {
 )]
 pub enum RaftInterfaceResponsePayload {
     // AllLogEntries(Vec<holochain_raft::Entry<HcrTypes>>),
-    UserLogEntries(Vec<LogOp>),
+    UserLogEntries(Vec<holochain_raft::LogOp>),
     Ok,
     Error(holochain_raft::message::P2pResponse),
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, SerializedBytes)]
-pub struct LogOp {
-    pub log_id: holochain_raft::LogId<HcrTypes>,
-    pub op: RaftOp,
 }

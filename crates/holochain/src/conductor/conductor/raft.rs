@@ -1,5 +1,5 @@
 use holochain_conductor_api::{
-    LogOp, RaftInterfaceRequest, RaftInterfaceRequestPayload, RaftInterfaceResponsePayload,
+    RaftInterfaceRequest, RaftInterfaceRequestPayload, RaftInterfaceResponsePayload,
 };
 use holochain_raft::{message::*, *};
 
@@ -172,7 +172,7 @@ impl Conductor {
                 .map_err(|e| ConductorError::other(e.to_string()))?
                 .into_iter()
                 .filter_map(|l| match l.payload {
-                    EntryPayload::Normal(n) => Some(LogOp {
+                    EntryPayload::Normal(n) => Some(holochain_raft::LogOp {
                         log_id: l.log_id,
                         op: n,
                     }),
@@ -243,14 +243,16 @@ impl Conductor {
 
         let config = make_config();
         let raft_id = local_agent.clone().into();
-        let raft = holochain_raft::P2pRaft::new_mem(
+        let raft = holochain_raft::P2pRaft::spawn_memory(
             raft_id,
             config,
             client.clone(),
             Some(signal_tx),
             |_| (),
         )
-        .await;
+        .await
+        .expect("couldn't create raft");
+
         *raft_lock.lock().await = Some(raft.clone());
 
         if let Err(err) = self
@@ -261,13 +263,7 @@ impl Conductor {
             tracing::warn!("raft signal receiver receiver dropped: {err:?}");
         }
 
-        let chore_task = tokio::spawn(raft.clone().chore_loop());
-
-        let cat = Catamaran {
-            client,
-            raft,
-            chore_task: Arc::new(chore_task),
-        };
+        let cat = Catamaran { client, raft };
 
         // let sink = {
         //     let tx = self

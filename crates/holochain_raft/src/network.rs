@@ -40,7 +40,7 @@ impl p2p_raft::network::P2pNetwork<HcrTypes> for HcClient {
         self.local_agent.clone().into()
     }
 
-    async fn send_p2p(
+    async fn send_rpc(
         &self,
         target: HcNode,
         req: p2p_raft::message::P2pRequest<HcrTypes>,

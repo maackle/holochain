@@ -25,7 +25,8 @@ tokio = { version = "*", features = ["sync"] }
 
 anyerror = { version = "*", features = ["anyhow"] }
 p2p-raft = { git = "https://github.com/maackle/p2p-raft.git" }
-openraft = { git = "https://github.com/maackle/openraft", branch = "adapt-v1-feature", features = [
+openraft = { git = "https://github.com/databendlabs/openraft", default-features = false, features = [
+  "tokio-rt",
   "type-alias",
 ] }
 # openraft-macros = { git = "https://github.com/databendlabs/openraft.git" }
