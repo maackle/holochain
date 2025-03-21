@@ -1,12 +1,12 @@
 use std::{collections::BTreeSet, time::Duration};
 
 use holochain_conductor_api::{
-    AppRequest, AppResponse, LogOp, RaftInterfaceRequest, RaftInterfaceRequestPayload,
+    AppRequest, AppResponse, RaftInterfaceRequest, RaftInterfaceRequestPayload,
     RaftInterfaceResponsePayload, RaftSignal,
 };
 use holochain_raft::{
     error::{ClientWriteError, ForwardToLeader, RaftError},
-    LogId, P2pRaft, RaftEvent, RaftOp,
+    LogId, LogOp, P2pRaft, RaftEvent, RaftOp,
 };
 use holochain_wasm_test_utils::TestWasm;
 use p2p_raft::{message::P2pError, testing::await_partition_stability};
