@@ -381,6 +381,27 @@ async fn test_raft() {
         // }
     };
 
+    // Check that all ops are still retrievable by the remaining voters one more time
+    for i in 0..NUM {
+        if i == leader_index || !conductors[i].is_running() {
+            continue;
+        }
+
+        let ops = conductors[i]
+            .handle_raft_interface_call(
+                app_id.clone(),
+                mk_payload(RaftInterfaceRequestPayload::GetUserLogEntries(None)),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            ops.unwrap_user_log_entries().len(),
+            NUM,
+            "agent {i} can't get all the ops"
+        );
+    }
+
     // Check that all conductors are voters
     for i in 0..NUM {
         for j in 0..NUM {
