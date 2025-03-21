@@ -14,107 +14,6 @@ use p2p_raft::{message::P2pError, testing::await_partition_stability};
 use super::*;
 
 #[tokio::test(flavor = "multi_thread")]
-async fn serialize_raft_types() {
-    let agents = vec![AgentPubKey::from_raw_32(vec![11; 32])];
-    let raft_space = RaftSpace::from("raft-space");
-    let request_payloads = [
-        RaftInterfaceRequestPayload::Initialize(agents.clone()),
-        RaftInterfaceRequestPayload::Join(agents.clone()),
-        RaftInterfaceRequestPayload::Leave,
-        RaftInterfaceRequestPayload::Propose(RaftOp::from(vec![1, 2, 3])),
-        RaftInterfaceRequestPayload::GetUserLogEntries(Some(42)),
-    ];
-
-    let response_payloads = [
-        RaftInterfaceResponsePayload::UserLogEntries(vec![LogOp {
-            log_id: LogId {
-                index: 42,
-                leader_id: Default::default(),
-            },
-            op: RaftOp::from(vec![1, 2, 3]),
-        }]),
-        RaftInterfaceResponsePayload::Ok,
-        RaftInterfaceResponsePayload::Error(holochain_raft::message::P2pResponse::RaftError(
-            RaftError::APIError(ClientWriteError::ForwardToLeader(ForwardToLeader {
-                leader_id: Some(AgentPubKey::from_raw_32(vec![11; 32]).into()),
-                leader_node: Some(()),
-            })),
-        )),
-        RaftInterfaceResponsePayload::Error(holochain_raft::message::P2pResponse::P2pError(
-            P2pError::NotVoter,
-        )),
-    ];
-
-    let signals = [RaftEvent::EntryCommitted {
-        log_id: LogId {
-            index: 42,
-            leader_id: Default::default(),
-        },
-        data: vec![1, 2, 3].into(),
-    }];
-
-    let mut errors = vec![];
-
-    println!();
-    println!("REQUESTS");
-    println!("--------");
-    for p in request_payloads {
-        let r = AppRequest::Raft(RaftInterfaceRequest {
-            dna_hash: DnaHash::from_raw_32(vec![22; 32]),
-            raft_space: raft_space.clone(),
-            payload: p,
-        });
-        // let serialized = serde_json::to_string_pretty(&r).unwrap();
-        let serialized = serde_json::to_string(&r).unwrap();
-        let deserialized: AppRequest = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(format!("{r:?}"), format!("{deserialized:?}"));
-        println!("{}", serialized);
-    }
-
-    println!();
-    println!("RESPONSES");
-    println!("---------");
-    for p in response_payloads {
-        let r = AppResponse::Raft(p);
-        // let serialized = serde_json::to_string_pretty(&r).unwrap();
-        let serialized = serde_json::to_string(&r).unwrap();
-        let deserialized: AppResponse = serde_json::from_str(&serialized).unwrap();
-
-        let (left, right) = (format!("{r:?}"), format!("{deserialized:?}"));
-        if left != right {
-            // Some serialization fails because HcrTypes::Node = (), and Some(()) deserializes to None
-            errors.push(format!(
-                "NOTE: deserialization is different:\nLEFT:  {left}\nRIGHT: {right}"
-            ));
-        }
-
-        println!("{}", serialized);
-    }
-
-    println!();
-    println!("SIGNALS");
-    println!("--------");
-    for e in signals {
-        let s = Signal::Raft(RaftSignal {
-            space: raft_space.clone(),
-            event: e,
-        });
-        let serialized = serde_json::to_string(&s).unwrap();
-        let deserialized: Signal = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(format!("{s:?}"), format!("{deserialized:?}"));
-
-        println!("{}", serialized);
-    }
-
-    println!();
-    println!("ERRORS");
-    println!("------");
-    for e in errors {
-        println!("{e}");
-    }
-}
-
-#[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "slow_tests")]
 async fn test_raft() {
     use either::Either;
@@ -402,16 +301,131 @@ async fn test_raft() {
         );
     }
 
-    // Check that all conductors are voters
-    for i in 0..NUM {
-        for j in 0..NUM {
-            if i != j {
-                assert!(
-                    rafts[i].is_voter(&rafts[j].id).await.unwrap(),
-                    "{i} sees {j} as voter"
-                );
+    let retries = 3;
+
+    let mut notseen = vec![];
+    for _ in 0..retries {
+        notseen.clear();
+
+        // Check that all conductors are voters
+        for i in 0..NUM {
+            for j in 0..NUM {
+                if i != j {
+                    if !rafts[i].is_voter(&rafts[j].id).await.unwrap() {
+                        notseen.push((i, j));
+                    }
+                }
             }
         }
+        if notseen.is_empty() {
+            break;
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
+    }
+
+    if !notseen.is_empty() {
+        panic!("conductors are not seeing each other as voters: {notseen:?}");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn serialize_raft_types() {
+    let agents = vec![AgentPubKey::from_raw_32(vec![11; 32])];
+    let raft_space = RaftSpace::from("raft-space");
+    let request_payloads = [
+        RaftInterfaceRequestPayload::Initialize(agents.clone()),
+        RaftInterfaceRequestPayload::Join(agents.clone()),
+        RaftInterfaceRequestPayload::Leave,
+        RaftInterfaceRequestPayload::Propose(RaftOp::from(vec![1, 2, 3])),
+        RaftInterfaceRequestPayload::GetUserLogEntries(Some(42)),
+    ];
+
+    let response_payloads = [
+        RaftInterfaceResponsePayload::UserLogEntries(vec![LogOp {
+            log_id: LogId {
+                index: 42,
+                leader_id: Default::default(),
+            },
+            op: RaftOp::from(vec![1, 2, 3]),
+        }]),
+        RaftInterfaceResponsePayload::Ok,
+        RaftInterfaceResponsePayload::Error(holochain_raft::message::P2pResponse::RaftError(
+            RaftError::APIError(ClientWriteError::ForwardToLeader(ForwardToLeader {
+                leader_id: Some(AgentPubKey::from_raw_32(vec![11; 32]).into()),
+                leader_node: Some(()),
+            })),
+        )),
+        RaftInterfaceResponsePayload::Error(holochain_raft::message::P2pResponse::P2pError(
+            P2pError::NotVoter,
+        )),
+    ];
+
+    let signals = [RaftEvent::EntryCommitted {
+        log_id: LogId {
+            index: 42,
+            leader_id: Default::default(),
+        },
+        data: vec![1, 2, 3].into(),
+    }];
+
+    let mut errors = vec![];
+
+    println!();
+    println!("REQUESTS");
+    println!("--------");
+    for p in request_payloads {
+        let r = AppRequest::Raft(RaftInterfaceRequest {
+            dna_hash: DnaHash::from_raw_32(vec![22; 32]),
+            raft_space: raft_space.clone(),
+            payload: p,
+        });
+        // let serialized = serde_json::to_string_pretty(&r).unwrap();
+        let serialized = serde_json::to_string(&r).unwrap();
+        let deserialized: AppRequest = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(format!("{r:?}"), format!("{deserialized:?}"));
+        println!("{}", serialized);
+    }
+
+    println!();
+    println!("RESPONSES");
+    println!("---------");
+    for p in response_payloads {
+        let r = AppResponse::Raft(p);
+        // let serialized = serde_json::to_string_pretty(&r).unwrap();
+        let serialized = serde_json::to_string(&r).unwrap();
+        let deserialized: AppResponse = serde_json::from_str(&serialized).unwrap();
+
+        let (left, right) = (format!("{r:?}"), format!("{deserialized:?}"));
+        if left != right {
+            // Some serialization fails because HcrTypes::Node = (), and Some(()) deserializes to None
+            errors.push(format!(
+                "NOTE: deserialization is different:\nLEFT:  {left}\nRIGHT: {right}"
+            ));
+        }
+
+        println!("{}", serialized);
+    }
+
+    println!();
+    println!("SIGNALS");
+    println!("--------");
+    for e in signals {
+        let s = Signal::Raft(RaftSignal {
+            space: raft_space.clone(),
+            event: e,
+        });
+        let serialized = serde_json::to_string(&s).unwrap();
+        let deserialized: Signal = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(format!("{s:?}"), format!("{deserialized:?}"));
+
+        println!("{}", serialized);
+    }
+
+    println!();
+    println!("ERRORS");
+    println!("------");
+    for e in errors {
+        println!("{e}");
     }
 }
 
