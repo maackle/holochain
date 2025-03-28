@@ -474,7 +474,13 @@ impl WebsocketReceiver {
                             return Err(WebsocketError::Other("UnexpectedRawFrame".to_string()))
                         }
                     };
-                    match WireMessage::try_from_bytes(msg)? {
+                    match WireMessage::try_from_bytes(msg.clone()).map_err(|e| {
+                        tracing::error!(
+                            ?msg,
+                            "WebsocketReceiver failed to deserialize this WireMessage"
+                        );
+                        e
+                    })? {
                         WireMessage::Authenticate { data } => {
                             Ok(Some(ReceiveMessage::Authenticate(data)))
                         }
@@ -483,8 +489,15 @@ impl WebsocketReceiver {
                                 id,
                                 core: core_sync,
                             };
-                            let data: D =
-                                SerializedBytes::from(UnsafeBytes::from(data)).try_into()?;
+                            let data: D = SerializedBytes::from(UnsafeBytes::from(data.clone()))
+                                .try_into()
+                                .map_err(|e| {
+                                    tracing::error!(
+                                        ?data,
+                                        "WebsocketReceiver failed to deserialize this data"
+                                    );
+                                    e
+                                })?;
                             tracing::trace!(?data, %id, "InRequest");
                             Ok(Some(ReceiveMessage::Request(data, resp)))
                         }
