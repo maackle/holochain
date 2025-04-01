@@ -1,3 +1,4 @@
+use futures::stream::FuturesUnordered;
 use holochain_conductor_api::{
     RaftInterfaceRequest, RaftInterfaceRequestPayload, RaftInterfaceResponsePayload,
 };
@@ -112,54 +113,56 @@ impl Conductor {
                     .await
                     .map_err(|e| ConductorError::other(format!("can't initialize: {e:?}")))?;
 
-                Ok(RaftInterfaceResponsePayload::Ok)
+                Ok(RaftInterfaceResponsePayload::Initialized)
             }
             RaftInterfaceRequestPayload::Join(peers) => {
                 // Ask all known peers to join
-                future::join_all(peers.into_iter().map(move |peer| {
-                    let client = client.clone();
-                    let msg = P2pRequest::Join;
-                    async move {
-                        let res = client
-                            .call(peer.clone(), msg.into())
-                            .await
-                            .map_err(|e| ConductorError::other(format!("can't join raft: {e:?}")))?
-                            .unwrap_p_2_p();
-                        match res {
-                            P2pResponse::Ok => {
-                                ConductorResult::Ok(RaftInterfaceResponsePayload::Ok)
-                            }
-                            r => Ok(RaftInterfaceResponsePayload::Error(r)),
+                let mut futs: FuturesUnordered<_> = peers
+                    .into_iter()
+                    .map(move |peer| {
+                        let client = client.clone();
+                        let msg = P2pRequest::Join;
+                        async move {
+                            anyhow::Ok(client.call(peer.clone(), msg.into()).await?.unwrap_p_2_p())
                         }
+                    })
+                    .collect();
+
+                let mut errors = Vec::new();
+
+                while let Some(res) = futs.next().await {
+                    match res {
+                        Ok(res) => {
+                            if res.is_ok() {
+                                // Return early if we successfully joined
+                                return Ok(RaftInterfaceResponsePayload::Joined);
+                            } else {
+                                errors.push(format!("p2p error joining: {res:?}"));
+                            }
+                        }
+                        Err(e) => errors.push(e.to_string()),
                     }
-                }))
-                .await
-                .into_iter()
-                .collect::<Result<Vec<_>, _>>()?;
-                Ok(RaftInterfaceResponsePayload::Ok)
+                }
+
+                Ok(RaftInterfaceResponsePayload::CouldNotJoin(errors))
             }
             RaftInterfaceRequestPayload::Leave => {
                 let res = client
                     .call_leader_with_retry(P2pRequest::Leave.into())
                     .await
-                    .map_err(|e| ConductorError::other(format!("can't leave raft: {e:?}")))?
+                    .map_err(|e| ConductorError::other(format!("Raft Leave call failed: {e:?}")))?
                     .unwrap_p_2_p();
-                match res {
-                    P2pResponse::Ok => Ok(RaftInterfaceResponsePayload::Ok),
-                    r => Ok(RaftInterfaceResponsePayload::Error(r)),
-                }
+                Ok(RaftInterfaceResponsePayload::P2pResponse(res))
             }
             RaftInterfaceRequestPayload::Propose(op) => {
                 // XXX: first call is to self. No need to use the client for this.
                 let res = client
                     .call_leader_with_retry(P2pRequest::Propose(op).into())
                     .await
-                    .map_err(|e| ConductorError::other(format!("can't propose op in raft: {e:?}")))?
+                    .map_err(|e| ConductorError::other(format!("Raft Propose call failed: {e:?}")))?
                     .unwrap_p_2_p();
-                match res {
-                    P2pResponse::Ok => Ok(RaftInterfaceResponsePayload::Ok),
-                    r => Ok(RaftInterfaceResponsePayload::Error(r)),
-                }
+
+                Ok(RaftInterfaceResponsePayload::P2pResponse(res))
             }
             RaftInterfaceRequestPayload::GetUserLogEntries(index) => {
                 let mut reader = raft.store.get_log_reader().await;
@@ -181,16 +184,7 @@ impl Conductor {
                 .collect();
 
                 Ok(RaftInterfaceResponsePayload::UserLogEntries(entries))
-            } // RaftInterfaceRequestPayload::GetAllLogEntries(index) => {
-              //     let mut reader = raft.store.get_log_reader().await;
-              //     let entries = if let Some(index) = index {
-              //         reader.try_get_log_entries(index..).await
-              //     } else {
-              //         reader.try_get_log_entries(..).await
-              //     }
-              //     .map_err(|e| ConductorError::other(e.to_string()))?;
-              //     Ok(RaftInterfaceResponsePayload::AllLogEntries(entries))
-              // }
+            }
         }
     }
 

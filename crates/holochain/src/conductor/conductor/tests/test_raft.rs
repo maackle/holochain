@@ -348,14 +348,19 @@ async fn serialize_raft_types() {
             },
             op: RaftOp::from(vec![1, 2, 3]),
         }]),
-        RaftInterfaceResponsePayload::Ok,
-        RaftInterfaceResponsePayload::Error(holochain_raft::message::P2pResponse::RaftError(
+        RaftInterfaceResponsePayload::Initialized,
+        RaftInterfaceResponsePayload::Joined,
+        RaftInterfaceResponsePayload::CouldNotJoin(vec![
+            "error 1".to_string(),
+            "error 2".to_string(),
+        ]),
+        RaftInterfaceResponsePayload::P2pResponse(holochain_raft::message::P2pResponse::RaftError(
             RaftError::APIError(ClientWriteError::ForwardToLeader(ForwardToLeader {
                 leader_id: Some(AgentPubKey::from_raw_32(vec![11; 32]).into()),
                 leader_node: Some(()),
             })),
         )),
-        RaftInterfaceResponsePayload::Error(holochain_raft::message::P2pResponse::P2pError(
+        RaftInterfaceResponsePayload::P2pResponse(holochain_raft::message::P2pResponse::P2pError(
             P2pError::NotVoter,
         )),
     ];

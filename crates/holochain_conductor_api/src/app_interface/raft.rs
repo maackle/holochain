@@ -32,8 +32,6 @@ pub enum RaftInterfaceRequestPayload {
     Propose(RaftOp),
     /// Get user-created log entries after the given log id
     GetUserLogEntries(Option<u64>),
-    // /// Get log entries after the given log id
-    // GetAllLogEntries(Option<u64>),
 }
 
 #[derive(
@@ -46,8 +44,19 @@ pub enum RaftInterfaceRequestPayload {
     derive_more::Unwrap,
 )]
 pub enum RaftInterfaceResponsePayload {
-    // AllLogEntries(Vec<holochain_raft::Entry<HcrTypes>>),
+    /// Response to [`RaftInterfaceRequestPayload::Initialize`]
+    Initialized,
+
+    /// Response to [`RaftInterfaceRequestPayload::Join`]
+    Joined,
+
+    /// Response to [`RaftInterfaceRequestPayload::Join`]
+    CouldNotJoin(Vec<String>),
+
+    /// Response to [`RaftInterfaceRequestPayload::GetUserLogEntries`]
     UserLogEntries(Vec<holochain_raft::LogOp>),
-    Ok,
-    Error(holochain_raft::message::P2pResponse),
+
+    /// Response to [`RaftInterfaceRequestPayload::Propose`]
+    /// and [`RaftInterfaceRequestPayload::Leave`]
+    P2pResponse(holochain_raft::message::P2pResponse),
 }
