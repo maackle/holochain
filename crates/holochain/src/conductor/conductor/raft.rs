@@ -1,4 +1,3 @@
-use futures::stream::FuturesUnordered;
 use holochain_conductor_api::{
     RaftInterfaceRequest, RaftInterfaceRequestPayload, RaftInterfaceResponsePayload,
 };
@@ -8,7 +7,6 @@ use super::*;
 
 fn make_config() -> p2p_raft::Config {
     p2p_raft::Config {
-        p2p_config: Default::default(),
         raft_config: OpenraftConfig {
             heartbeat_interval: 500,
             election_timeout_min: 1500,
@@ -16,6 +14,7 @@ fn make_config() -> p2p_raft::Config {
             // max_in_snapshot_log_to_keep: 0,
             ..Default::default()
         },
+        ..Default::default()
     }
 }
 
@@ -72,11 +71,8 @@ impl Conductor {
         {
             let mut t = data.raft.raft.tracker.lock().await;
             t.touch(&holochain_raft::HcNode::from(remote_agent));
-            t.handle_absentees(
-                &data.raft.raft,
-                data.raft.raft.config.p2p_config.responsive_interval,
-            )
-            .await;
+            t.handle_absentees(&data.raft.raft, data.raft.raft.config.responsive_interval)
+                .await;
         }
 
         Ok(res)
@@ -115,43 +111,18 @@ impl Conductor {
 
                 Ok(RaftInterfaceResponsePayload::Initialized)
             }
-            RaftInterfaceRequestPayload::Join(peers) => {
-                // Ask all known peers to join
-                let mut futs: FuturesUnordered<_> = peers
-                    .into_iter()
-                    .map(move |peer| {
-                        let client = client.clone();
-                        let msg = P2pRequest::Join;
-                        async move {
-                            anyhow::Ok(client.call(peer.clone(), msg.into()).await?.unwrap_p_2_p())
-                        }
-                    })
-                    .collect();
-
-                let mut errors = Vec::new();
-
-                while let Some(res) = futs.next().await {
-                    match res {
-                        Ok(res) => {
-                            if res.is_ok() {
-                                // Return early if we successfully joined
-                                return Ok(RaftInterfaceResponsePayload::Joined);
-                            } else {
-                                errors.push(format!("p2p error joining: {res:?}"));
-                            }
-                        }
-                        Err(e) => errors.push(e.to_string()),
-                    }
-                }
-
-                Ok(RaftInterfaceResponsePayload::CouldNotJoin(errors))
-            }
+            RaftInterfaceRequestPayload::Join(peers) => match raft
+                .broadcast_join(peers.into_iter().map(HcNode::from).collect::<Vec<_>>())
+                .await
+            {
+                Ok(_) => Ok(RaftInterfaceResponsePayload::Joined),
+                Err(e) => Ok(RaftInterfaceResponsePayload::CouldNotJoin(e.into())),
+            },
             RaftInterfaceRequestPayload::Leave => {
                 let res = client
                     .call_leader_with_retry(P2pRequest::Leave.into())
                     .await
-                    .map_err(|e| ConductorError::other(format!("Raft Leave call failed: {e:?}")))?
-                    .unwrap_p_2_p();
+                    .map_err(|e| ConductorError::other(format!("Raft Leave call failed: {e:?}")))?;
                 Ok(RaftInterfaceResponsePayload::P2pResponse(res))
             }
             RaftInterfaceRequestPayload::Propose(op) => {
@@ -159,8 +130,9 @@ impl Conductor {
                 let res = client
                     .call_leader_with_retry(P2pRequest::Propose(op).into())
                     .await
-                    .map_err(|e| ConductorError::other(format!("Raft Propose call failed: {e:?}")))?
-                    .unwrap_p_2_p();
+                    .map_err(|e| {
+                        ConductorError::other(format!("Raft Propose call failed: {e:?}"))
+                    })?;
 
                 Ok(RaftInterfaceResponsePayload::P2pResponse(res))
             }

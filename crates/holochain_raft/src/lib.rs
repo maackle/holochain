@@ -15,6 +15,7 @@ pub type LeaderId = openraft::impls::leader_id_adv::LeaderId<HcrTypes>;
 pub type P2pRaft = p2p_raft::P2pRaft<HcrTypes, HcClient>;
 pub type RaftEvent = p2p_raft::signal::RaftEvent<HcrTypes>;
 pub type LogOp = p2p_raft::LogOp<HcrTypes>;
+pub type P2pRaftError = p2p_raft::Error<HcrTypes, String>;
 
 openraft::declare_raft_types!(
     #[derive(serde::Serialize, serde::Deserialize)]
@@ -23,7 +24,7 @@ openraft::declare_raft_types!(
         R = (),
         NodeId = HcNode,
         Node = (),
-        SnapshotData = p2p_raft::StateMachineData<Self>,
+        SnapshotData = Vec<RaftOp>,
 );
 
 impl p2p_raft::TypeCfg for HcrTypes {}

@@ -51,7 +51,7 @@ pub enum RaftInterfaceResponsePayload {
     Joined,
 
     /// Response to [`RaftInterfaceRequestPayload::Join`]
-    CouldNotJoin(Vec<String>),
+    CouldNotJoin(holochain_raft::P2pRaftError),
 
     /// Response to [`RaftInterfaceRequestPayload::GetUserLogEntries`]
     UserLogEntries(Vec<holochain_raft::LogOp>),

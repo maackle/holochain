@@ -1096,7 +1096,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
 dependencies = [
  "lazy_static",
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -3386,7 +3386,7 @@ dependencies = [
  "once_cell",
  "openraft",
  "p2p-raft",
- "rand 0.9.0",
+ "rand 0.6.5",
  "rand_distr 0.5.1",
  "rmp-serde",
  "serde",
@@ -3881,7 +3881,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.8",
+ "socket2 0.4.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -4433,15 +4433,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "itertools"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
-dependencies = [
- "either",
-]
-
-[[package]]
 name = "itoa"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4899,7 +4890,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if 1.0.0",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -5659,7 +5650,7 @@ checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 [[package]]
 name = "openraft"
 version = "0.10.0"
-source = "git+https://github.com/databendlabs/openraft#ef090e1bef84b5ab65ff3851cb7266d42506c637"
+source = "git+https://github.com/databendlabs/openraft#30f1ae675473682dd271be3804689fa5ea2702cf"
 dependencies = [
  "anyerror",
  "byte-unit",
@@ -5681,7 +5672,7 @@ dependencies = [
 [[package]]
 name = "openraft-macros"
 version = "0.10.0"
-source = "git+https://github.com/databendlabs/openraft#ef090e1bef84b5ab65ff3851cb7266d42506c637"
+source = "git+https://github.com/databendlabs/openraft#30f1ae675473682dd271be3804689fa5ea2702cf"
 dependencies = [
  "chrono",
  "proc-macro2",
@@ -5693,7 +5684,7 @@ dependencies = [
 [[package]]
 name = "openraft-memstore"
 version = "0.10.0"
-source = "git+https://github.com/databendlabs/openraft#ef090e1bef84b5ab65ff3851cb7266d42506c637"
+source = "git+https://github.com/databendlabs/openraft#30f1ae675473682dd271be3804689fa5ea2702cf"
 dependencies = [
  "openraft",
  "serde",
@@ -5804,20 +5795,20 @@ dependencies = [
 [[package]]
 name = "p2p-raft"
 version = "0.1.0"
-source = "git+https://github.com/maackle/p2p-raft.git#8db1980edab52bd79ce389d03ac40ce614ceabd6"
+source = "git+https://github.com/maackle/p2p-raft.git#e2c7c1f654243c98f446a934bb4e39f1e3b54b2c"
 dependencies = [
  "anyerror",
  "anyhow",
  "derive_more 1.0.0",
  "futures",
- "itertools 0.14.0",
+ "itertools 0.10.5",
  "maplit",
  "nanoid",
  "openraft",
  "openraft-macros",
  "openraft-memstore",
  "p2p-raft-memstore",
- "parking_lot 0.12.3",
+ "parking_lot 0.11.2",
  "rand 0.9.0",
  "serde",
  "tokio",
@@ -5829,7 +5820,7 @@ dependencies = [
 [[package]]
 name = "p2p-raft-memstore"
 version = "0.1.0"
-source = "git+https://github.com/maackle/p2p-raft.git#8db1980edab52bd79ce389d03ac40ce614ceabd6"
+source = "git+https://github.com/maackle/p2p-raft.git#e2c7c1f654243c98f446a934bb4e39f1e3b54b2c"
 dependencies = [
  "derive_more 1.0.0",
  "openraft",
@@ -8781,7 +8772,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "static_assertions",
 ]
 
@@ -9603,7 +9594,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

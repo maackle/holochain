@@ -4,12 +4,9 @@ use holochain_conductor_api::{
     AppRequest, AppResponse, RaftInterfaceRequest, RaftInterfaceRequestPayload,
     RaftInterfaceResponsePayload, RaftSignal,
 };
-use holochain_raft::{
-    error::{ClientWriteError, ForwardToLeader, RaftError},
-    LogId, LogOp, P2pRaft, RaftEvent, RaftOp,
-};
+use holochain_raft::{LogId, LogOp, P2pRaft, P2pRaftError, RaftEvent, RaftOp};
 use holochain_wasm_test_utils::TestWasm;
-use p2p_raft::{message::P2pError, testing::await_partition_stability};
+use p2p_raft::testing::await_partition_stability;
 
 use super::*;
 
@@ -340,6 +337,8 @@ async fn serialize_raft_types() {
         RaftInterfaceRequestPayload::GetUserLogEntries(Some(42)),
     ];
 
+    let forward = Some((agents[0].clone().into(), ()));
+
     let response_payloads = [
         RaftInterfaceResponsePayload::UserLogEntries(vec![LogOp {
             log_id: LogId {
@@ -350,18 +349,15 @@ async fn serialize_raft_types() {
         }]),
         RaftInterfaceResponsePayload::Initialized,
         RaftInterfaceResponsePayload::Joined,
-        RaftInterfaceResponsePayload::CouldNotJoin(vec![
-            "error 1".to_string(),
-            "error 2".to_string(),
-        ]),
-        RaftInterfaceResponsePayload::P2pResponse(holochain_raft::message::P2pResponse::RaftError(
-            RaftError::APIError(ClientWriteError::ForwardToLeader(ForwardToLeader {
-                leader_id: Some(AgentPubKey::from_raw_32(vec![11; 32]).into()),
-                leader_node: Some(()),
-            })),
+        RaftInterfaceResponsePayload::CouldNotJoin(P2pRaftError::NotLeader(forward.clone())),
+        RaftInterfaceResponsePayload::P2pResponse(holochain_raft::message::P2pResponse::Error(
+            P2pRaftError::Rejected,
         )),
-        RaftInterfaceResponsePayload::P2pResponse(holochain_raft::message::P2pResponse::P2pError(
-            P2pError::NotVoter,
+        RaftInterfaceResponsePayload::P2pResponse(holochain_raft::message::P2pResponse::Error(
+            P2pRaftError::NotLeader(forward.clone()),
+        )),
+        RaftInterfaceResponsePayload::P2pResponse(holochain_raft::message::P2pResponse::Error(
+            P2pRaftError::Fatal("fatal error".to_string()),
         )),
     ];
 
@@ -505,7 +501,7 @@ pub fn spawn_info_task(rafts: impl IntoIterator<Item = P2pRaft>) {
             interval.tick().await;
             for r in rafts.iter() {
                 let t = r.tracker.lock().await;
-                let peers = t.responsive_peers(r.config.p2p_config.responsive_interval);
+                let peers = t.responsive_peers(r.config.responsive_interval);
                 let members = r
                     .raft
                     .with_raft_state(|s| {

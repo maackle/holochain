@@ -4,7 +4,6 @@ use crate::{message::*, HcNode, HcrTypes};
 use holochain_keystore::MetaLairClient;
 use holochain_p2p::{HolochainP2pDna, HolochainP2pDnaT};
 use holochain_types::prelude::*;
-use openraft::error::{ClientWriteError, RaftError};
 use p2p_raft::P2pRaft;
 use tokio::sync::Mutex;
 
@@ -21,23 +20,31 @@ pub struct HcClient {
 }
 
 impl HcClient {
-    pub async fn call_leader_with_retry(&self, message: RpcRequest) -> anyhow::Result<RpcResponse> {
+    pub async fn call_leader_with_retry(&self, message: P2pRequest) -> anyhow::Result<P2pResponse> {
+        use p2p_raft::Error::*;
+
         let retries = 3;
         let mut target = self.local_agent.clone();
         let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(3));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         for _ in 0..retries {
             interval.tick().await;
-            let res = self.call(target.clone(), message.clone()).await?;
+            let res = self.call(target.clone(), message.clone().into()).await?;
             match res {
-                RpcResponse::P2p(P2pResponse::RaftError(RaftError::APIError(
-                    ClientWriteError::ForwardToLeader(leader),
-                ))) => {
-                    if let Some(leader) = leader.leader_id {
-                        target = leader.agent();
-                    }
-                }
-                r => return Ok(r),
+                RpcResponse::P2p(r) => match r {
+                    P2pResponse::Error(ref e) => match e {
+                        // Allow a retry with the newly discovered leader
+                        NotLeader(Some((leader, _))) => {
+                            target = leader.agent();
+                        }
+                        // Return immediately if retrying won't help
+                        Rejected | NotLeader(None) | Fatal(_) => return Ok(r.clone()),
+                    },
+                    // Return success immediately
+                    r => return Ok(r),
+                },
+                // The target node is not responding appropriately, can't do anything about this.
+                r => anyhow::bail!("unexpected non-p2p response: {:?}", r),
             }
         }
         anyhow::bail!("Failed to call leader after {} retries", retries);
@@ -57,7 +64,7 @@ impl HcClient {
                     let mut t = raft.tracker.lock().await;
 
                     t.touch(&HcNode(target.into()));
-                    t.handle_absentees(&raft, raft.config.p2p_config.responsive_interval)
+                    t.handle_absentees(&raft, raft.config.responsive_interval)
                         .await;
                 } else {
                     tracing::warn!("raft not yet set in client");
