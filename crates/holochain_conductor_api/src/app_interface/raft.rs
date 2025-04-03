@@ -26,12 +26,16 @@ pub struct RaftInterfaceResponse {
 pub enum RaftInterfaceRequestPayload {
     /// Initialize the raft network with the provided peers
     Initialize(Vec<AgentPubKey>),
+
     /// Message these peers, telling them to add me to their raft cluster
     Join(Vec<AgentPubKey>),
+
     /// Leave the raft network
     Leave,
+
     /// Propose an operation to the raft network
     Propose(RaftOp),
+
     /// Get user-created log entries after the given log id
     GetUserLogEntries(Option<u64>),
 
@@ -52,9 +56,9 @@ pub enum RaftInterfaceResponsePayload {
     /// Response to [`RaftInterfaceRequestPayload::Initialize`]
     /// Response to [`RaftInterfaceRequestPayload::Join`]
     /// Response to [`RaftInterfaceRequestPayload::Leave`]
-    /// Response to [`RaftInterfaceRequestPayload::Propose`]
     Ok,
 
+    /// Response to [`RaftInterfaceRequestPayload::Propose`]
     #[unwrap(ignore)]
     Committed { log_id: LogId },
 
