@@ -1,4 +1,4 @@
-use holochain_raft::{RaftOp, RaftSpace};
+use holochain_raft::{LogId, RaftOp, RaftSpace};
 
 use super::*;
 
@@ -45,18 +45,17 @@ pub enum RaftInterfaceRequestPayload {
 )]
 pub enum RaftInterfaceResponsePayload {
     /// Response to [`RaftInterfaceRequestPayload::Initialize`]
-    Initialized,
-
     /// Response to [`RaftInterfaceRequestPayload::Join`]
-    Joined,
+    /// Response to [`RaftInterfaceRequestPayload::Leave`]
+    /// Response to [`RaftInterfaceRequestPayload::Propose`]
+    Ok,
 
-    /// Response to [`RaftInterfaceRequestPayload::Join`]
-    CouldNotJoin(holochain_raft::P2pRaftError),
+    #[unwrap(ignore)]
+    Committed { log_id: LogId },
 
     /// Response to [`RaftInterfaceRequestPayload::GetUserLogEntries`]
     UserLogEntries(Vec<holochain_raft::LogOp>),
 
-    /// Response to [`RaftInterfaceRequestPayload::Propose`]
-    /// and [`RaftInterfaceRequestPayload::Leave`]
-    P2pResponse(holochain_raft::message::P2pResponse),
+    /// Shared error type for all raft interface requests
+    Error(holochain_raft::P2pRaftError),
 }

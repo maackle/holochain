@@ -7,7 +7,7 @@ use holo_hash::AgentPubKey;
 
 pub use openraft::error;
 pub use openraft::storage::RaftLogStorage;
-pub use openraft::{Config as OpenraftConfig, Entry, EntryPayload, LogId, RaftLogReader};
+pub use openraft::{Config as OpenraftConfig, Entry, EntryPayload, RaftLogReader};
 
 pub use p2p_raft::Config;
 
@@ -16,6 +16,7 @@ pub type P2pRaft = p2p_raft::P2pRaft<HcrTypes, HcClient>;
 pub type RaftEvent = p2p_raft::signal::RaftEvent<HcrTypes>;
 pub type LogOp = p2p_raft::LogOp<HcrTypes>;
 pub type P2pRaftError = p2p_raft::Error<HcrTypes, String>;
+pub type LogId = openraft::LogId<HcrTypes>;
 
 openraft::declare_raft_types!(
     #[derive(serde::Serialize, serde::Deserialize)]

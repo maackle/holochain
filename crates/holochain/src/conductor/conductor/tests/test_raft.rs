@@ -339,26 +339,23 @@ async fn serialize_raft_types() {
 
     let forward = Some((agents[0].clone().into(), ()));
 
+    let log_id = LogId {
+        index: 42,
+        leader_id: Default::default(),
+    };
+
     let response_payloads = [
         RaftInterfaceResponsePayload::UserLogEntries(vec![LogOp {
-            log_id: LogId {
-                index: 42,
-                leader_id: Default::default(),
-            },
+            log_id: log_id.clone(),
             op: RaftOp::from(vec![1, 2, 3]),
         }]),
-        RaftInterfaceResponsePayload::Initialized,
-        RaftInterfaceResponsePayload::Joined,
-        RaftInterfaceResponsePayload::CouldNotJoin(P2pRaftError::NotLeader(forward.clone())),
-        RaftInterfaceResponsePayload::P2pResponse(holochain_raft::message::P2pResponse::Error(
-            P2pRaftError::Rejected,
-        )),
-        RaftInterfaceResponsePayload::P2pResponse(holochain_raft::message::P2pResponse::Error(
-            P2pRaftError::NotLeader(forward.clone()),
-        )),
-        RaftInterfaceResponsePayload::P2pResponse(holochain_raft::message::P2pResponse::Error(
-            P2pRaftError::Fatal("fatal error".to_string()),
-        )),
+        RaftInterfaceResponsePayload::Ok,
+        RaftInterfaceResponsePayload::Committed {
+            log_id: log_id.clone(),
+        },
+        RaftInterfaceResponsePayload::Error(P2pRaftError::Rejected),
+        RaftInterfaceResponsePayload::Error(P2pRaftError::NotLeader(forward.clone())),
+        RaftInterfaceResponsePayload::Error(P2pRaftError::Fatal("fatal error".to_string())),
     ];
 
     let signals = [RaftEvent::EntryCommitted {

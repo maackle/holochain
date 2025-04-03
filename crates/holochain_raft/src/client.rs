@@ -33,7 +33,7 @@ impl HcClient {
             match res {
                 RpcResponse::P2p(r) => match r {
                     P2pResponse::Error(ref e) => match e {
-                        // Allow a retry with the newly discovered leader
+                        // Retry with the newly discovered leader
                         NotLeader(Some((leader, _))) => {
                             target = leader.agent();
                         }
@@ -47,7 +47,7 @@ impl HcClient {
                 r => anyhow::bail!("unexpected non-p2p response: {:?}", r),
             }
         }
-        anyhow::bail!("Failed to call leader after {} retries", retries);
+        anyhow::bail!("Failed to find the leader after {} retries", retries);
     }
 
     pub async fn call(
