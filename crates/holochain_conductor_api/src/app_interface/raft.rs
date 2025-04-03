@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use holochain_raft::{LogId, RaftOp, RaftSpace};
 
 use super::*;
@@ -32,6 +34,9 @@ pub enum RaftInterfaceRequestPayload {
     Propose(RaftOp),
     /// Get user-created log entries after the given log id
     GetUserLogEntries(Option<u64>),
+
+    /// Get raft info
+    GetRaftInfo,
 }
 
 #[derive(
@@ -58,4 +63,14 @@ pub enum RaftInterfaceResponsePayload {
 
     /// Shared error type for all raft interface requests
     Error(holochain_raft::P2pRaftError),
+
+    /// Response to [`RaftInterfaceRequestPayload::RaftInfo`]
+    RaftInfo(RaftInfo),
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, SerializedBytes)]
+pub struct RaftInfo {
+    pub current_leader: Option<AgentPubKey>,
+    pub status: holochain_raft::openraft::ServerState,
+    pub voters: BTreeSet<AgentPubKey>,
 }

@@ -1,5 +1,7 @@
+use std::collections::BTreeSet;
+
 use holochain_conductor_api::{
-    RaftInterfaceRequest, RaftInterfaceRequestPayload, RaftInterfaceResponsePayload,
+    RaftInfo, RaftInterfaceRequest, RaftInterfaceRequestPayload, RaftInterfaceResponsePayload,
 };
 use holochain_raft::{message::*, *};
 
@@ -154,6 +156,29 @@ impl Conductor {
                     .map_err(|e| ConductorError::other(e.to_string()))?;
 
                 Ok(RaftInterfaceResponsePayload::UserLogEntries(ops))
+            }
+            RaftInterfaceRequestPayload::GetRaftInfo => {
+                let (status, voters) = raft
+                    .with_raft_state(|s| {
+                        (
+                            s.server_state.clone(),
+                            s.membership_state
+                                .committed()
+                                .voter_ids()
+                                .map(|id| id.agent())
+                                .collect::<BTreeSet<AgentPubKey>>(),
+                        )
+                    })
+                    .await
+                    .map_err(|e| ConductorError::other(format!("Couldn't get raft info: {e:?}")))?;
+
+                let current_leader = raft.raft.current_leader().await.map(|l| l.agent());
+
+                Ok(RaftInterfaceResponsePayload::RaftInfo(RaftInfo {
+                    current_leader,
+                    status,
+                    voters,
+                }))
             }
         }
     }

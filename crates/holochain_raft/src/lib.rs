@@ -5,6 +5,7 @@ mod network;
 pub use client::HcClient;
 use holo_hash::AgentPubKey;
 
+pub use openraft;
 pub use openraft::error;
 pub use openraft::storage::RaftLogStorage;
 pub use openraft::{Config as OpenraftConfig, Entry, EntryPayload, RaftLogReader};
