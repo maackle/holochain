@@ -5650,7 +5650,7 @@ checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 [[package]]
 name = "openraft"
 version = "0.10.0"
-source = "git+https://github.com/databendlabs/openraft#30f1ae675473682dd271be3804689fa5ea2702cf"
+source = "git+https://github.com/databendlabs/openraft#50cb1cc3aa7e561361d018b8be17a93b7c57771a"
 dependencies = [
  "anyerror",
  "byte-unit",
@@ -5672,7 +5672,7 @@ dependencies = [
 [[package]]
 name = "openraft-macros"
 version = "0.10.0"
-source = "git+https://github.com/databendlabs/openraft#30f1ae675473682dd271be3804689fa5ea2702cf"
+source = "git+https://github.com/databendlabs/openraft#50cb1cc3aa7e561361d018b8be17a93b7c57771a"
 dependencies = [
  "chrono",
  "proc-macro2",
@@ -5684,7 +5684,7 @@ dependencies = [
 [[package]]
 name = "openraft-memstore"
 version = "0.10.0"
-source = "git+https://github.com/databendlabs/openraft#30f1ae675473682dd271be3804689fa5ea2702cf"
+source = "git+https://github.com/databendlabs/openraft#50cb1cc3aa7e561361d018b8be17a93b7c57771a"
 dependencies = [
  "openraft",
  "serde",
@@ -5795,20 +5795,20 @@ dependencies = [
 [[package]]
 name = "p2p-raft"
 version = "0.1.0"
-source = "git+https://github.com/maackle/p2p-raft.git#e2c7c1f654243c98f446a934bb4e39f1e3b54b2c"
+source = "git+https://github.com/maackle/p2p-raft.git#1ac915efb9d2dee20ada3881a65f22bf5716c3eb"
 dependencies = [
  "anyerror",
  "anyhow",
  "derive_more 1.0.0",
  "futures",
- "itertools 0.10.5",
+ "itertools 0.8.2",
  "maplit",
  "nanoid",
  "openraft",
  "openraft-macros",
  "openraft-memstore",
  "p2p-raft-memstore",
- "parking_lot 0.11.2",
+ "parking_lot 0.4.8",
  "rand 0.9.0",
  "serde",
  "tokio",
@@ -5820,7 +5820,7 @@ dependencies = [
 [[package]]
 name = "p2p-raft-memstore"
 version = "0.1.0"
-source = "git+https://github.com/maackle/p2p-raft.git#e2c7c1f654243c98f446a934bb4e39f1e3b54b2c"
+source = "git+https://github.com/maackle/p2p-raft.git#1ac915efb9d2dee20ada3881a65f22bf5716c3eb"
 dependencies = [
  "derive_more 1.0.0",
  "openraft",

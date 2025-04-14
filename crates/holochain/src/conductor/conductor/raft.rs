@@ -142,8 +142,8 @@ impl Conductor {
                     })?;
 
                 match res {
-                    P2pResponse::Committed { log_id } => {
-                        Ok(RaftInterfaceResponsePayload::Committed { log_id })
+                    P2pResponse::Committed(commit) => {
+                        Ok(RaftInterfaceResponsePayload::Committed(commit))
                     }
                     P2pResponse::Error(e) => Ok(RaftInterfaceResponsePayload::Error(e)),
                     r => Err(ConductorError::other(format!("unexpected response: {r:?}"))),
@@ -151,7 +151,7 @@ impl Conductor {
             }
             RaftInterfaceRequestPayload::GetUserLogEntries(index) => {
                 let ops = raft
-                    .read_log_ops(index.map(|i| i + 1).unwrap_or(0))
+                    .read_log_data(index.map(|i| i + 1).unwrap_or(0))
                     .await
                     .map_err(|e| ConductorError::other(e.to_string()))?;
 

@@ -60,7 +60,7 @@ pub enum RaftInterfaceResponsePayload {
 
     /// Response to [`RaftInterfaceRequestPayload::Propose`]
     #[unwrap(ignore)]
-    Committed { log_id: LogId },
+    Committed(holochain_raft::Committed),
 
     /// Response to [`RaftInterfaceRequestPayload::GetUserLogEntries`]
     UserLogEntries(Vec<holochain_raft::LogOp>),

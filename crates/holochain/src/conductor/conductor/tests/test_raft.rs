@@ -4,7 +4,7 @@ use holochain_conductor_api::{
     AppRequest, AppResponse, RaftInterfaceRequest, RaftInterfaceRequestPayload,
     RaftInterfaceResponsePayload, RaftSignal,
 };
-use holochain_raft::{LogId, LogOp, P2pRaft, P2pRaftError, RaftEvent, RaftOp};
+use holochain_raft::{Committed, LogId, LogOp, P2pRaft, P2pRaftError, RaftEvent, RaftOp};
 use holochain_wasm_test_utils::TestWasm;
 use p2p_raft::testing::await_partition_stability;
 
@@ -350,19 +350,17 @@ async fn serialize_raft_types() {
             op: RaftOp::from(vec![1, 2, 3]),
         }]),
         RaftInterfaceResponsePayload::Ok,
-        RaftInterfaceResponsePayload::Committed {
+        RaftInterfaceResponsePayload::Committed(Committed {
             log_id: log_id.clone(),
-        },
+            prev_op_log_id: Some(log_id.clone()),
+        }),
         RaftInterfaceResponsePayload::Error(P2pRaftError::Rejected),
         RaftInterfaceResponsePayload::Error(P2pRaftError::NotLeader(forward.clone())),
         RaftInterfaceResponsePayload::Error(P2pRaftError::Fatal("fatal error".to_string())),
     ];
 
     let signals = [RaftEvent::EntryCommitted {
-        log_id: LogId {
-            index: 42,
-            leader_id: Default::default(),
-        },
+        log_id: log_id.clone(),
         data: vec![1, 2, 3].into(),
     }];
 

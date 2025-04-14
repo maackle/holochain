@@ -18,7 +18,7 @@ pub type RaftEvent = p2p_raft::signal::RaftEvent<HcrTypes>;
 pub type LogOp = p2p_raft::LogOp<HcrTypes>;
 pub type P2pRaftError = p2p_raft::Error<HcrTypes, String>;
 pub type LogId = openraft::LogId<HcrTypes>;
-
+pub type Committed = p2p_raft::message::Committed<HcrTypes>;
 openraft::declare_raft_types!(
     #[derive(serde::Serialize, serde::Deserialize)]
     pub HcrTypes:
