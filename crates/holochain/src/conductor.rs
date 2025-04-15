@@ -9,7 +9,7 @@
 //! to call zome functions on other Cells, as well as to send Signals to the
 //! outside world
 
-#![deny(missing_docs)]
+// #![deny(missing_docs)]
 
 // TODO: clean up allow(missing_docs) once parent is fully documented
 

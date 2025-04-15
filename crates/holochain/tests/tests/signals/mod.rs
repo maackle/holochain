@@ -2,8 +2,8 @@
 //!
 
 use hdk::prelude::ExternIO;
+use holochain::prelude::*;
 use holochain::sweettest::*;
-use holochain_types::prelude::*;
 use holochain_wasm_test_utils::TestWasm;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;

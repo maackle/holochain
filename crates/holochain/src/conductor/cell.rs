@@ -45,6 +45,7 @@ use crate::core::workflow::GenesisWorkspace;
 use crate::core::workflow::InitializeZomesWorkflowArgs;
 use crate::core::workflow::ZomeCallResult;
 use crate::{conductor::api::error::ConductorApiError, core::ribosome::RibosomeT};
+use holochain_conductor_api::Signal;
 use holochain_p2p::event::CountersigningSessionNegotiationMessage;
 #[cfg(feature = "unstable-countersigning")]
 use {
@@ -374,7 +375,9 @@ impl holochain_p2p::event::HcP2pHandler for Cell {
         signature: Signature,
     ) -> BoxFut<'_, HolochainP2pResult<SerializedBytes>> {
         let fut = async move {
+            // println!("SERIALIZED: {:?}", zome_call_params_serialized);
             let zome_call_params = zome_call_params_serialized.decode::<ZomeCallParams>()?;
+            // println!("DESERIALIZED: {:?}", zome_call_params);
             if !is_valid_signature(
                 &zome_call_params.provenance,
                 zome_call_params_serialized.as_bytes(),
@@ -742,6 +745,34 @@ impl Cell {
         params: ZomeCallParams,
         workspace_lock: Option<SourceChainWorkspace>,
     ) -> CellResult<ZomeCallResult> {
+        let app_id = self
+            .conductor_handle
+            .get_state()
+            .await
+            .expect("can get state")
+            .find_app_containing_cell(&self.id)
+            .expect("cell must be part of an app")
+            .installed_app_id
+            .clone();
+
+        if params.fn_name == FunctionName::from("raft-hardwired-hack")
+            || params.zome_name == ZomeName::from("raft-hardwired-hack")
+        {
+            let res = self
+                .conductor_handle
+                .handle_raft_rpc_call(
+                    app_id,
+                    self.id().dna_hash().clone(),
+                    params.payload.decode()?,
+                    params.provenance,
+                )
+                .await
+                .map_err(|e| {
+                    CellError::ConductorApiError(Box::new(ConductorApiError::other(e.to_string())))
+                })?;
+            return Ok(Ok(ZomeCallResponse::Ok(ExternIO::encode(res)?)));
+        }
+
         // Only check if init has run if this call is not coming from
         // an already running init call.
         if workspace_lock

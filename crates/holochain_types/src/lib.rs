@@ -33,7 +33,6 @@ pub mod prelude;
 pub mod rate_limit;
 pub mod record;
 pub mod share;
-pub mod signal;
 #[warn(missing_docs)]
 pub mod sql;
 pub mod validation_receipt;

@@ -9,6 +9,7 @@ use crate::core::ribosome::guest_callback::init::InitResult;
 use crate::core::ribosome::guest_callback::post_commit::send_post_commit;
 use crate::core::ribosome::RibosomeT;
 use derive_more::Constructor;
+use holochain_conductor_api::Signal;
 use holochain_keystore::MetaLairClient;
 use holochain_p2p::{HolochainP2pDna, HolochainP2pDnaT};
 use holochain_state::host_fn_workspace::SourceChainWorkspace;

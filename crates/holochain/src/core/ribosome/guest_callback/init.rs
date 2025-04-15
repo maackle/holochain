@@ -5,6 +5,7 @@ use crate::core::ribosome::Invocation;
 use crate::core::ribosome::InvocationAuth;
 use crate::core::ribosome::ZomesToInvoke;
 use derive_more::Constructor;
+use holochain_conductor_api::Signal;
 use holochain_keystore::MetaLairClient;
 use holochain_p2p::HolochainP2pDna;
 use holochain_serialized_bytes::prelude::*;

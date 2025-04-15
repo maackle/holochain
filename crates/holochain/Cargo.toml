@@ -47,6 +47,8 @@ holochain_nonce = { version = "^0.5.0", path = "../holochain_nonce" }
 holochain_secure_primitive = { version = "^0.5.0", path = "../holochain_secure_primitive" }
 holochain_conductor_config = { version = "^0.5.0", path = "../holochain_conductor_config" }
 holochain_timestamp = { version = "^0.5.0", path = "../timestamp" }
+holochain_raft = { version = "^0.1.0", path = "../holochain_raft", optional = true }
+p2p-raft = { git = "https://github.com/maackle/p2p-raft.git" }
 human-panic = "2.0"
 itertools = { version = "0.12" }
 kitsune2_api = "0.1.2"
@@ -81,6 +83,7 @@ tempfile = "3.3"
 thiserror = "1.0.22"
 tokio = { version = "1.36.0", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync", "net"] }
+tokio-util = "0.7"
 task-motel = "0.1.0"
 tracing = "0.1"
 tracing-futures = "0.2.5"
@@ -181,7 +184,7 @@ path = "src/bin/holochain/main.rs"
 workspace = true
 
 [features]
-default = ["sqlite-encrypted", "metrics_influxive", "wasmer_sys"]
+default = ["sqlite-encrypted", "metrics_influxive", "wasmer_sys", "raft"]
 
 # Use the "Influxive" opentelemetry metrics binding to write metrics
 # to an InfluxDB time series database.
@@ -313,3 +316,5 @@ unstable-countersigning = [
   "holochain_zome_types/unstable-countersigning",
   "holochain_conductor_api/unstable-countersigning",
 ]
+
+raft = ["holochain_raft/testing", "holochain_conductor_api/raft"]

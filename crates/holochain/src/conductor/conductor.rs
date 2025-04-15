@@ -1,4 +1,4 @@
-#![deny(missing_docs)]
+// #![deny(missing_docs)]
 #![allow(deprecated)]
 
 //! A Conductor is a dynamically changing group of [Cell]s.
@@ -48,13 +48,17 @@ use futures::future;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
 use futures::stream::StreamExt;
+use holochain_raft::RaftSpace;
 #[cfg(feature = "wasmer_sys")]
 use holochain_wasmer_host::module::ModuleCache;
 use indexmap::IndexMap;
 use itertools::Itertools;
+use raft::Yacht;
 use rusqlite::Transaction;
 use tokio::sync::mpsc::error::SendError;
+use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
+use tokio_stream::wrappers::ReceiverStream;
 use tracing::*;
 
 pub use builder::*;
@@ -65,6 +69,7 @@ use holochain_conductor_api::AppStatusFilter;
 use holochain_conductor_api::FullIntegrationStateDump;
 use holochain_conductor_api::FullStateDump;
 use holochain_conductor_api::IntegrationStateDump;
+use holochain_conductor_api::Signal;
 use holochain_keystore::lair_keystore::spawn_lair_keystore;
 use holochain_keystore::lair_keystore::spawn_lair_keystore_in_proc;
 use holochain_keystore::MetaLairClient;
@@ -120,6 +125,9 @@ use super::{api::AdminInterfaceApi, manager::TaskManagerClient};
 mod builder;
 
 mod chc;
+
+#[cfg(feature = "raft")]
+mod raft;
 
 mod graft_records_onto_source_chain;
 
@@ -259,6 +267,16 @@ pub struct Conductor {
 
     /// Container to connect app signals to app interfaces, by installed app id.
     app_broadcast: AppBroadcast,
+
+    #[cfg(feature = "raft")]
+    pub(crate) rafts: Arc<Mutex<HashMap<(DnaHash, RaftSpace), Yacht>>>,
+
+    #[cfg(feature = "raft")]
+    pub(crate) raft_signal_receiver_sender: tokio::sync::mpsc::Sender<(
+        InstalledAppId,
+        RaftSpace,
+        tokio::sync::mpsc::Receiver<(holochain_raft::HcNode, holochain_raft::RaftEvent)>,
+    )>,
 }
 
 impl std::fmt::Debug for Conductor {
@@ -276,6 +294,9 @@ impl Conductor {
 
 /// Methods related to conductor startup/shutdown
 mod startup_shutdown_impls {
+
+    use holochain_conductor_api::RaftSignal;
+
     use crate::conductor::manager::{spawn_task_outcome_handler, OutcomeReceiver, OutcomeSender};
 
     use super::*;
@@ -305,6 +326,36 @@ mod startup_shutdown_impls {
                 let _ = std::fs::create_dir_all(&path);
             }
 
+            let app_broadcast = AppBroadcast::default();
+
+            #[cfg(feature = "raft")]
+            let raft_tx = {
+                let app_broadcast = app_broadcast.clone();
+                let (tx_receivers, mut rx_receivers_from_conductor) =
+                    tokio::sync::mpsc::channel(100);
+                tokio::spawn(async move {
+                    let mut map = tokio_stream::StreamMap::new();
+
+                    loop {
+                        tokio::select! {
+                            Some((app_id, raft_space, rx_signals_from_raft)) = rx_receivers_from_conductor.recv() => {
+                                map.insert((app_id, raft_space), ReceiverStream::new(rx_signals_from_raft));
+                            }
+                            Some(((app_id, raft_space), (_, event))) = map.next() => {
+                                let signal = Signal::Raft(RaftSignal {
+                                    space: raft_space,
+                                    event
+                                });
+                                if let Err(err) = app_broadcast.create_send_handle(app_id).send(signal) {
+                                    tracing::error!("error sending raft signal: {err:?}");
+                                }
+                            }
+                        }
+                    }
+                });
+                tx_receivers
+            };
+
             Self {
                 spaces,
                 running_cells: RwShare::new(IndexMap::new()),
@@ -326,7 +377,12 @@ mod startup_shutdown_impls {
                 #[cfg(feature = "wasmer_wamr")]
                 wasmer_module_cache: None,
                 app_auth_token_store: RwShare::default(),
-                app_broadcast: AppBroadcast::default(),
+                app_broadcast,
+
+                #[cfg(feature = "raft")]
+                rafts: Arc::new(Mutex::new(HashMap::new())),
+                #[cfg(feature = "raft")]
+                raft_signal_receiver_sender: raft_tx,
             }
         }
 
@@ -357,7 +413,15 @@ mod startup_shutdown_impls {
 
             let mut tm = self.task_manager();
             let task = self.detach_task_management().expect("Attempting to shut down after already detaching task management or previous shutdown");
+
+            let rafts = self.rafts.clone();
             tokio::task::spawn(async move {
+                for raft in rafts.lock().await.values_mut() {
+                    if let Err(err) = raft.raft.raft.shutdown().await {
+                        tracing::error!("error shutting down raft: {err:?}");
+                    }
+                }
+
                 tracing::info!("Sending shutdown signal to all managed tasks.");
                 let (_, r) = futures::join!(tm.shutdown().boxed(), task,);
                 r?

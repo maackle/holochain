@@ -13,7 +13,7 @@ use holochain_serialized_bytes::prelude::*;
 // - then the guest inflates the expected input or the host the expected output based on the
 //   callback flavour
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
 #[repr(transparent)]
 pub struct ExternIO(#[serde(with = "serde_bytes")] pub Vec<u8>);

@@ -11,6 +11,7 @@ use crate::conductor::{
 use crate::retry_until_timeout;
 use ::fixt::prelude::StdRng;
 use hdk::prelude::*;
+use holochain_conductor_api::Signal;
 use holochain_conductor_api::{
     AdminRequest, AdminResponse, AppAuthenticationRequest, CellInfo, ProvisionedCell,
 };
@@ -87,10 +88,7 @@ impl SweetConductor {
         self.config = Arc::from(f((*self.config).clone()));
     }
 
-    /// Create a SweetConductor from an already-built ConductorHandle and environments
-    /// RibosomeStore
-    /// The conductor will be supplied with a single test AppInterface named
-    /// "sweet-interface" so that signals may be emitted
+    /// Create a SweetConductor from an already-built ConductorHandle and RibosomeStore
     pub async fn new(
         handle: ConductorHandle,
         env_dir: TestDir,

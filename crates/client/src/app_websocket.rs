@@ -4,14 +4,14 @@ use crate::{signing::sign_zome_call, ConductorApiError, ConductorApiResult};
 use anyhow::{anyhow, Result};
 use holo_hash::AgentPubKey;
 use holochain_conductor_api::{
-    AppAuthenticationToken, AppInfo, AppRequest, AppResponse, CellInfo, ProvisionedCell,
+    AppAuthenticationToken, AppInfo, AppRequest, AppResponse, CellInfo, ProvisionedCell, Signal,
     ZomeCallParamsSigned,
 };
 use holochain_nonce::fresh_nonce;
 use holochain_types::app::{
     CreateCloneCellPayload, DisableCloneCellPayload, EnableCloneCellPayload, MemproofMap,
 };
-use holochain_types::prelude::{CloneId, Signal};
+use holochain_types::prelude::CloneId;
 use holochain_websocket::{ConnectRequest, WebsocketConfig};
 use holochain_zome_types::{
     clone::ClonedCell,
@@ -218,7 +218,7 @@ impl AppWebsocket {
                         handler(signal);
                     }
                 }
-                Signal::System(_) => handler(signal),
+                Signal::System(_) | Signal::Raft(_) => handler(signal),
             })
             .await
     }

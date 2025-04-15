@@ -1,10 +1,14 @@
 use crate::{AppAuthenticationToken, ExternalApiWireError};
 use holo_hash::AgentPubKey;
-use holochain_keystore::LairResult;
-use holochain_keystore::MetaLairClient;
+use holochain_keystore::{LairResult, MetaLairClient};
 use holochain_types::prelude::*;
 use indexmap::IndexMap;
 use std::collections::HashMap;
+
+#[cfg(feature = "raft")]
+mod raft;
+#[cfg(feature = "raft")]
+pub use raft::*;
 
 /// Represents the available conductor functions to call over an app interface
 /// and will result in a corresponding [`AppResponse`] message being sent back over the
@@ -223,6 +227,24 @@ pub enum AppRequest {
     ///
     /// [`AppResponse::Ok`]
     EnableApp,
+
+    /// Raft-related requests
+    #[cfg(feature = "raft")]
+    Raft(RaftInterfaceRequest),
+    //
+    // TODO: implement after DPKI lands
+    // /// Replace the agent key associated with this app with a new one.
+    // /// The new key will be created using the same method which is used
+    // /// when installing an app with no agent key provided.
+    // ///
+    // /// This method is only available if this app was installed using `allow_deferred_memproofs`,
+    // /// and can only be called before [`AppRequest::ProvideMemproofs`] has been called.
+    // /// Until then, it can be called as many times as needed.
+    // ///
+    // /// # Returns
+    // ///
+    // /// [`AppResponse::AppAgentKeyRotated`]
+    // RotateAppAgentKey,
 }
 
 /// Represents the possible responses to an [`AppRequest`].
@@ -286,6 +308,10 @@ pub enum AppResponse {
 
     /// The app agent key as been rotated, and the new key is returned.
     AppAgentKeyRotated(AgentPubKey),
+
+    /// Raft-related responses
+    #[cfg(feature = "raft")]
+    Raft(RaftInterfaceResponsePayload),
 
     /// Operation successful, no payload.
     Ok,

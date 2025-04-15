@@ -632,6 +632,7 @@ impl CounterSigningSessionData {
     }
 }
 
+#[allow(missing_docs)]
 #[cfg(test)]
 mod test {
     use super::CounterSigningError;

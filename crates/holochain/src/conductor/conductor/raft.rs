@@ -1,0 +1,278 @@
+use std::collections::BTreeSet;
+
+use holochain_conductor_api::{
+    RaftInfo, RaftInterfaceRequest, RaftInterfaceRequestPayload, RaftInterfaceResponsePayload,
+};
+use holochain_raft::{message::*, *};
+
+use super::*;
+
+fn make_config() -> p2p_raft::Config {
+    p2p_raft::Config {
+        raft_config: OpenraftConfig {
+            heartbeat_interval: 500,
+            election_timeout_min: 1500,
+            election_timeout_max: 3000,
+            // max_in_snapshot_log_to_keep: 0,
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
+
+impl Conductor {
+    /// Get a raft instance
+    pub async fn get_raft(
+        &self,
+        installed_app_id: InstalledAppId,
+        dna_hash: DnaHash,
+        raft_id: RaftSpace,
+    ) -> Yacht {
+        let provenance = crate::core::workflow::sys_validation_workflow::get_representative_agent(
+            self, &dna_hash,
+        )
+        .expect("TODO");
+
+        self.lookup_raft(installed_app_id, dna_hash, provenance, raft_id)
+            .await
+    }
+
+    pub(crate) async fn handle_raft_rpc_call(
+        &self,
+        installed_app_id: InstalledAppId,
+        dna_hash: DnaHash,
+        request: RpcRequestEnvelope,
+        remote_agent: AgentPubKey,
+    ) -> ConductorResult<RpcResponse> {
+        // TODO: the representative agent must change if this agent ever leaves the network (and there are other local agents)
+        let local_agent = crate::core::workflow::sys_validation_workflow::get_representative_agent(
+            self, &dna_hash,
+        )
+        .expect("TODO");
+
+        let raft_id = request.raft_id;
+
+        let data = self
+            .lookup_raft(
+                installed_app_id,
+                dna_hash.clone(),
+                local_agent.clone(),
+                raft_id.clone(),
+            )
+            .await;
+
+        let res = data
+            .raft
+            .raft
+            .handle_rpc(remote_agent.clone().into(), request.payload)
+            .await
+            .map_err(|e| {
+                ConductorError::other(format!("TODO handle_incoming_request error: {e:?}"))
+            })?;
+
+        {
+            let mut t = data.raft.raft.tracker.lock().await;
+            t.touch(&holochain_raft::HcNode::from(remote_agent));
+            t.handle_absentees(&data.raft.raft, data.raft.raft.config.responsive_interval)
+                .await;
+        }
+
+        Ok(res)
+    }
+
+    pub(crate) async fn handle_raft_interface_call(
+        &self,
+        installed_app_id: InstalledAppId,
+        raft_call: RaftInterfaceRequest,
+    ) -> ConductorResult<RaftInterfaceResponsePayload> {
+        let dna_hash = raft_call.dna_hash.clone();
+
+        // TODO: the representative agent must change if this agent ever leaves the network (and there are other local agents)
+        let local_agent = crate::core::workflow::sys_validation_workflow::get_representative_agent(
+            self, &dna_hash,
+        )
+        .expect("TODO");
+
+        let Catamaran { client, raft, .. } = self
+            .lookup_raft(
+                installed_app_id,
+                dna_hash.clone(),
+                local_agent.clone(),
+                raft_call.raft_space,
+            )
+            .await
+            .raft;
+
+        match raft_call.payload {
+            RaftInterfaceRequestPayload::Initialize(peers) => {
+                raft.initialize(peers.into_iter().map(HcNode::from))
+                    .await
+                    .map_err(|e| ConductorError::other(format!("can't initialize: {e:?}")))?;
+
+                Ok(RaftInterfaceResponsePayload::Ok)
+            }
+            RaftInterfaceRequestPayload::Join(peers) => match raft
+                .broadcast_join(peers.into_iter().map(HcNode::from).collect::<Vec<_>>())
+                .await
+            {
+                Ok(_) => Ok(RaftInterfaceResponsePayload::Ok),
+                Err(e) => Ok(RaftInterfaceResponsePayload::Error(e.into())),
+            },
+            RaftInterfaceRequestPayload::Leave => {
+                let res = client
+                    .call_leader_with_retry(P2pRequest::Leave.into())
+                    .await
+                    .map_err(|e| ConductorError::other(format!("Raft Leave call failed: {e:?}")))?;
+
+                match res {
+                    P2pResponse::Ok => Ok(RaftInterfaceResponsePayload::Ok),
+                    P2pResponse::Error(e) => Ok(RaftInterfaceResponsePayload::Error(e)),
+                    r => Err(ConductorError::other(format!("unexpected response: {r:?}"))),
+                }
+            }
+            RaftInterfaceRequestPayload::Propose(op) => {
+                // XXX: first call is to self. No need to use the client for this.
+                let res = client
+                    .call_leader_with_retry(P2pRequest::Propose(op).into())
+                    .await
+                    .map_err(|e| {
+                        ConductorError::other(format!("Raft Propose call failed: {e:?}"))
+                    })?;
+
+                match res {
+                    P2pResponse::Committed(commit) => {
+                        Ok(RaftInterfaceResponsePayload::Committed(commit))
+                    }
+                    P2pResponse::Error(e) => Ok(RaftInterfaceResponsePayload::Error(e)),
+                    r => Err(ConductorError::other(format!("unexpected response: {r:?}"))),
+                }
+            }
+            RaftInterfaceRequestPayload::GetUserLogEntries(index) => {
+                let ops = raft
+                    .read_log_data(index.map(|i| i + 1).unwrap_or(0))
+                    .await
+                    .map_err(|e| ConductorError::other(e.to_string()))?;
+
+                Ok(RaftInterfaceResponsePayload::UserLogEntries(ops))
+            }
+            RaftInterfaceRequestPayload::GetRaftInfo => {
+                let (status, voters) = raft
+                    .with_raft_state(|s| {
+                        (
+                            s.server_state.clone(),
+                            s.membership_state
+                                .committed()
+                                .voter_ids()
+                                .map(|id| id.agent())
+                                .collect::<BTreeSet<AgentPubKey>>(),
+                        )
+                    })
+                    .await
+                    .map_err(|e| ConductorError::other(format!("Couldn't get raft info: {e:?}")))?;
+
+                let current_leader = raft.raft.current_leader().await.map(|l| l.agent());
+
+                Ok(RaftInterfaceResponsePayload::RaftInfo(RaftInfo {
+                    current_leader,
+                    status,
+                    voters,
+                }))
+            }
+        }
+    }
+
+    async fn lookup_raft(
+        &self,
+        installed_app_id: InstalledAppId,
+        dna_hash: DnaHash,
+        local_agent: AgentPubKey,
+        raft_id: RaftSpace,
+    ) -> Yacht {
+        let yacht = {
+            let mut rafts = self.rafts.lock().await;
+            match rafts.entry((dna_hash.clone(), raft_id.clone())) {
+                std::collections::hash_map::Entry::Vacant(v) => {
+                    let hc_raft = self
+                        .create_raft(installed_app_id.clone(), dna_hash, local_agent, raft_id)
+                        .await;
+                    v.insert(hc_raft.clone());
+                    hc_raft
+                }
+                std::collections::hash_map::Entry::Occupied(o) => o.get().clone(),
+            }
+        };
+
+        if yacht.installed_app_id != installed_app_id {
+            panic!("can't lookup raft for two different installed app ids");
+        }
+
+        yacht
+    }
+
+    async fn create_raft(
+        &self,
+        installed_app_id: InstalledAppId,
+        dna_hash: DnaHash,
+        local_agent: AgentPubKey,
+        raft_space: RaftSpace,
+    ) -> Yacht {
+        let client = HcClient {
+            local_agent: local_agent.clone(),
+            dna_hash: dna_hash.clone(),
+            keystore: self.keystore().clone(),
+            raft_space: raft_space.clone(),
+            network: self.holochain_p2p().clone(),
+            raft: Arc::new(Mutex::new(None)),
+        };
+
+        let raft_lock = client.raft.clone();
+
+        let (signal_tx, signal_rx) = tokio::sync::mpsc::channel(100);
+
+        let config = make_config();
+        let raft_id = local_agent.clone().into();
+        let raft = holochain_raft::P2pRaft::spawn_memory(
+            raft_id,
+            config,
+            client.clone(),
+            Some(signal_tx),
+            |_| (),
+        )
+        .await
+        .expect("couldn't create raft");
+
+        *raft_lock.lock().await = Some(raft.clone());
+
+        if let Err(err) = self
+            .raft_signal_receiver_sender
+            .send((installed_app_id.clone(), raft_space, signal_rx))
+            .await
+        {
+            tracing::warn!("raft signal receiver receiver dropped: {err:?}");
+        }
+
+        let cat = Catamaran { client, raft };
+
+        // let sink = {
+        //     let tx = self
+        //         .app_broadcast
+        //         .create_send_handle(installed_app_id.clone());
+        //     Box::new(
+        //         tokio_util::sync::PollSender::new(tx)
+        //             .with(|signal| futures::future::ok((raft_id, signal))),
+        //     )
+        // };
+
+        Yacht {
+            raft: cat,
+            installed_app_id,
+        }
+    }
+}
+
+#[derive(Clone, derive_more::Deref)]
+pub struct Yacht {
+    #[deref]
+    pub raft: Catamaran,
+    installed_app_id: InstalledAppId,
+}

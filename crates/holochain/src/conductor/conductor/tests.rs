@@ -29,6 +29,8 @@ use std::sync::Mutex;
 mod add_agent_infos;
 mod state_dump;
 
+mod test_raft;
+
 #[tokio::test(flavor = "multi_thread")]
 async fn can_update_state() {
     let db_dir = test_db_dir();

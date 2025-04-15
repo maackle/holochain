@@ -1,0 +1,39 @@
+[package]
+name = "holochain_raft"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "*"
+derive_more = { version = "0.99" }
+futures = "*"
+holo_hash = { path = "../holo_hash", features = ["full"] }
+holochain_keystore = { path = "../holochain_keystore" }
+holochain_nonce = { path = "../holochain_nonce" }
+holochain_p2p = { path = "../holochain_p2p" }
+holochain_types = { path = "../holochain_types" }
+maplit = "*"
+once_cell = "*"
+rand = "*"
+rand_distr = "*"
+rmp-serde = "*"
+serde = { version = "*", features = ["derive"] }
+serde_bytes = "*"
+serde_json = "*"
+tracing = "*"
+tokio = { version = "*", features = ["sync"] }
+
+anyerror = { version = "*", features = ["anyhow"] }
+p2p-raft = { git = "https://github.com/maackle/p2p-raft.git" }
+openraft = { git = "https://github.com/databendlabs/openraft", default-features = false, features = [
+  "tokio-rt",
+  "type-alias",
+] }
+# openraft-macros = { git = "https://github.com/databendlabs/openraft.git" }
+# openraft-memstore = { git = "https://github.com/databendlabs/openraft.git" }
+
+[features]
+testing = ["p2p-raft/testing"]
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ['-Os']

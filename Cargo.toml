@@ -18,6 +18,7 @@ members = [
   "crates/holochain_conductor_api",
   "crates/holochain_p2p",
   "crates/holochain_keystore",
+  "crates/holochain_raft",
   "crates/holochain_state",
   "crates/holochain_state_types",
   "crates/holochain_sqlite",
@@ -85,6 +86,9 @@ codegen-units = 16
 [profile.release]
 opt-level = "z"
 lto = true
+
+# [patch."https://github.com/maackle/p2p-raft"]
+# p2p-raft = { path = "/home/michael/proj/p2p-raft/crates/p2p-raft" }
 
 [patch.crates-io]
 # kitsune2_api = { path = "../kitsune2/crates/api" }

@@ -4,7 +4,7 @@ use crate::prelude::*;
 use holo_hash::AgentPubKey;
 
 /// A signal emitted by an app via `emit_signal`
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 #[serde(transparent)]
 pub struct AppSignal(ExternIO);

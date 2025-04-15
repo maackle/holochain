@@ -4,18 +4,16 @@ use ed25519_dalek::ed25519::signature::SignerMut;
 use ed25519_dalek::SigningKey;
 use hdk::prelude::RemoteSignal;
 use holochain::conductor::interface::websocket::MAX_CONNECTIONS;
+use holochain::conductor::{
+    api::{AdminRequest, AdminResponse, AppResponse},
+    error::ConductorError,
+    Conductor,
+};
+use holochain::prelude::*;
 use holochain::sweettest::SweetConductorBatch;
 use holochain::sweettest::SweetConductorConfig;
 use holochain::sweettest::SweetDnaFile;
 use holochain::sweettest::{authenticate_app_ws_client, SweetConductor, WsPollRecv};
-use holochain::{
-    conductor::{
-        api::{AdminRequest, AdminResponse, AppResponse},
-        error::ConductorError,
-        Conductor,
-    },
-    fixt::*,
-};
 use holochain_conductor_api::ExternalApiWireError;
 use holochain_conductor_api::ZomeCallParamsSigned;
 use std::net::{Ipv4Addr, Ipv6Addr, ToSocketAddrs};
@@ -23,11 +21,8 @@ use std::path::PathBuf;
 
 use either::Either;
 use holochain_conductor_api::{AdminInterfaceConfig, AppRequest, InterfaceDriver};
+use holochain_types::test_utils::{fake_dna_zomes, write_fake_dna_file};
 use holochain_types::websocket::AllowedOrigins;
-use holochain_types::{
-    prelude::*,
-    test_utils::{fake_dna_zomes, write_fake_dna_file},
-};
 use holochain_wasm_test_utils::TestWasm;
 use holochain_websocket::*;
 use matches::assert_matches;

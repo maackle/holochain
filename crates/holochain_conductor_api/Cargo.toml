@@ -14,6 +14,7 @@ cfg-if = "1.0"
 derive_more = "0.99"
 holo_hash = { version = "^0.5.0", path = "../holo_hash", features = ["full"] }
 holochain_state_types = { version = "^0.5.0", path = "../holochain_state_types" }
+holochain_raft = { version = "^0.1.0", path = "../holochain_raft", optional = true }
 holochain_serialized_bytes = "=0.0.55"
 holochain_types = { version = "^0.5.0", path = "../holochain_types" }
 holochain_zome_types = { version = "^0.5.0", path = "../holochain_zome_types" }
@@ -46,7 +47,9 @@ pretty_assertions = "1.4"
 workspace = true
 
 [features]
+default = ["raft"]
 chc = []
+raft = ["holochain_raft"]
 unstable-migration = []
 unstable-sharding = []
 unstable-countersigning = []

@@ -2,9 +2,8 @@ use crate::error::{ConductorApiError, ConductorApiResult};
 use crate::util::AbortOnDropHandle;
 use event_emitter_rs::EventEmitter;
 use holochain_conductor_api::{
-    AppAuthenticationRequest, AppAuthenticationToken, AppInfo, AppRequest, AppResponse,
+    AppAuthenticationRequest, AppAuthenticationToken, AppInfo, AppRequest, AppResponse, Signal,
 };
-use holochain_types::signal::Signal;
 use holochain_websocket::{connect, ConnectRequest, WebsocketConfig, WebsocketSender};
 use std::fmt::Formatter;
 use std::{net::ToSocketAddrs, sync::Arc};
