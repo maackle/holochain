@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use holochain_raft::{ RaftOp, RaftSpace};
+use holochain_raft::{RaftOp, RaftSpace};
 
 use super::*;
 
@@ -23,6 +23,7 @@ pub struct RaftInterfaceResponse {
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, SerializedBytes)]
+#[serde(tag = "type", content = "value", rename_all = "snake_case")]
 pub enum RaftInterfaceRequestPayload {
     /// Initialize the raft network with the provided peers
     Initialize(Vec<AgentPubKey>),
@@ -52,6 +53,7 @@ pub enum RaftInterfaceRequestPayload {
     SerializedBytes,
     derive_more::Unwrap,
 )]
+#[serde(tag = "type", content = "value", rename_all = "snake_case")]
 pub enum RaftInterfaceResponsePayload {
     /// Response to [`RaftInterfaceRequestPayload::Initialize`]
     /// Response to [`RaftInterfaceRequestPayload::Join`]
