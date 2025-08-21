@@ -16,13 +16,53 @@ use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
+use thiserror::Error;
+
+/// Error type for the SQLite op store
+#[derive(Debug, Error)]
+pub enum OpStoreError {
+    /// Database error
+    #[error("Database error: {0}")]
+    Database(#[from] holochain_state::prelude::StateMutationError),
+
+    /// Serialization error
+    #[error("Serialization error: {0}")]
+    Serialization(#[from] holochain_serialized_bytes::prelude::SerializedBytesError),
+
+    /// Kitsune2 error
+    #[error("Kitsune2 error: {0}")]
+    Kitsune2(#[from] kitsune2_api::K2Error),
+
+    /// Other error
+    #[error("Other error: {0}")]
+    Other(String),
+}
+
+/// Result type for the SQLite op store
+pub type OpStoreResult<T> = Result<T, OpStoreError>;
+
+/// Type alias for database getter function
+pub type GetDbOpStore = Arc<
+    dyn Fn(DnaHash) -> BoxFut<'static, OpStoreResult<DbWrite<DbKindDht>>> + 'static + Send + Sync,
+>;
+
+/// Trait for event handling - this is automatically implemented for any type that implements HcP2pHandler
+pub trait EventHandlerTrait: 'static + Send + Sync + std::fmt::Debug {
+    /// Handle publish event
+    fn handle_publish(
+        &self,
+        dna_hash: DnaHash,
+        request_validation_receipt: bool,
+        ops: Vec<DhtOp>,
+    ) -> BoxFut<'_, OpStoreResult<()>>;
+}
 
 /// Holochain implementation of the Kitsune2 [OpStoreFactory].
 pub struct HolochainOpStoreFactory {
     /// The database connection getter.
-    pub getter: crate::GetDbOpStore,
-    /// The event handler.
-    pub handler: Arc<std::sync::OnceLock<crate::spawn::WrapEvtSender>>,
+    pub getter: GetDbOpStore,
+    /// The event handler - now accepts any type that implements EventHandlerTrait
+    pub handler: Arc<std::sync::OnceLock<Arc<dyn EventHandlerTrait + Send + Sync>>>,
 }
 
 impl std::fmt::Debug for HolochainOpStoreFactory {
@@ -64,7 +104,7 @@ impl kitsune2_api::OpStoreFactory for HolochainOpStoreFactory {
 pub struct HolochainOpStore {
     db: DbWrite<DbKindDht>,
     dna_hash: DnaHash,
-    sender: Arc<std::sync::OnceLock<crate::spawn::WrapEvtSender>>,
+    sender: Arc<std::sync::OnceLock<Arc<dyn EventHandlerTrait + Send + Sync>>>,
 }
 
 impl Debug for HolochainOpStore {
@@ -80,7 +120,7 @@ impl HolochainOpStore {
     pub fn new(
         db: DbWrite<DbKindDht>,
         dna_hash: DnaHash,
-        sender: Arc<std::sync::OnceLock<crate::spawn::WrapEvtSender>>,
+        sender: Arc<std::sync::OnceLock<Arc<dyn EventHandlerTrait + Send + Sync>>>,
     ) -> HolochainOpStore {
         Self {
             db,
@@ -103,7 +143,6 @@ impl OpStore for HolochainOpStore {
                 dht_ops.push(op);
             }
 
-            use crate::types::event::HcP2pHandler;
             self.sender
                 .get()
                 .ok_or_else(|| K2Error::other("event handler not registered"))?

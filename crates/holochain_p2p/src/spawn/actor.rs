@@ -227,6 +227,28 @@ impl event::HcP2pHandler for WrapEvtSender {
     }
 }
 
+impl kitsune2_sqlite_op_store::op_store::EventHandlerTrait for WrapEvtSender {
+    fn handle_publish(
+        &self,
+        dna_hash: DnaHash,
+        request_validation_receipt: bool,
+        ops: Vec<holochain_types::dht_op::DhtOp>,
+    ) -> BoxFut<'_, kitsune2_sqlite_op_store::op_store::OpStoreResult<()>> {
+        let op_count = ops.len();
+        Box::pin(async move {
+            let result = timing_trace!(
+                true,
+                {
+                    self.0.handle_publish(dna_hash, request_validation_receipt, ops)
+                }, %op_count, a = "recv_publish"
+            )
+            .await;
+            result
+                .map_err(|e| kitsune2_sqlite_op_store::op_store::OpStoreError::Other(e.to_string()))
+        })
+    }
+}
+
 type Respond = tokio::sync::oneshot::Sender<crate::wire::WireMessage>;
 
 struct Pending {
@@ -256,6 +278,11 @@ pub(crate) struct HolochainP2pActor {
     compat: NetworkCompatParams,
     preflight: Arc<Mutex<bytes::Bytes>>,
     evt_sender: Arc<std::sync::OnceLock<WrapEvtSender>>,
+    event_handler_wrapper: Arc<
+        std::sync::OnceLock<
+            Arc<dyn kitsune2_sqlite_op_store::op_store::EventHandlerTrait + Send + Sync>,
+        >,
+    >,
     lair_client: holochain_keystore::MetaLairClient,
     kitsune: DynKitsune,
     pending: Arc<Mutex<Pending>>,
@@ -854,14 +881,18 @@ impl HolochainP2pActor {
 
         builder.auth_material = config.auth_material;
 
-        let evt_sender = Arc::new(std::sync::OnceLock::new());
+        let evt_sender: Arc<std::sync::OnceLock<WrapEvtSender>> =
+            Arc::new(std::sync::OnceLock::new());
 
         builder.peer_meta_store = Arc::new(HolochainPeerMetaStoreFactory {
             getter: config.get_db_peer_meta.clone(),
         });
+        // Create a wrapper that implements EventHandlerTrait for the factory
+        let event_handler_wrapper = Arc::new(std::sync::OnceLock::new());
+
         builder.op_store = Arc::new(HolochainOpStoreFactory {
             getter: config.get_db_op_store.clone(),
-            handler: evt_sender.clone(),
+            handler: event_handler_wrapper.clone(),
         });
         let preflight = Arc::new(Mutex::new(
             crate::wire::WirePreflightMessage {
@@ -909,6 +940,7 @@ impl HolochainP2pActor {
             compat: config.compat,
             preflight,
             evt_sender,
+            event_handler_wrapper,
             lair_client,
             kitsune,
             pending,
@@ -1278,8 +1310,17 @@ impl actor::HcP2p for HolochainP2pActor {
         Box::pin(async move {
             if let Some(this) = self.this.upgrade() {
                 self.evt_sender
-                    .set(WrapEvtSender(handler))
+                    .set(WrapEvtSender(handler.clone()))
                     .map_err(|_| HolochainP2pError::other("handler already set"))?;
+
+                // Also set the event handler wrapper for the op store
+                let wrap_evt_sender = WrapEvtSender(handler);
+                self.event_handler_wrapper
+                    .set(Arc::new(wrap_evt_sender)
+                        as Arc<
+                            dyn kitsune2_sqlite_op_store::op_store::EventHandlerTrait + Send + Sync,
+                        >)
+                    .map_err(|_| HolochainP2pError::other("event handler wrapper already set"))?;
 
                 self.kitsune.register_handler(this).await?;
 

@@ -24,12 +24,7 @@ pub type GetDbPeerMeta = Arc<
 >;
 
 /// Callback function to retrieve a op store database handle for a dna hash.
-pub type GetDbOpStore = Arc<
-    dyn Fn(DnaHash) -> BoxFut<'static, HolochainP2pResult<DbWrite<DbKindDht>>>
-        + 'static
-        + Send
-        + Sync,
->;
+pub type GetDbOpStore = kitsune2_sqlite_op_store::op_store::GetDbOpStore;
 
 /// HolochainP2p config struct.
 pub struct HolochainP2pConfig {
@@ -115,7 +110,7 @@ impl Default for HolochainP2pConfig {
         Self {
             get_db_peer_meta: Arc::new(|_| unimplemented!()),
             peer_meta_pruning_interval_ms: 10_000,
-            get_db_op_store: Arc::new(|_| unimplemented!()),
+            get_db_op_store: Arc::new(|_| Box::pin(async { Err(kitsune2_sqlite_op_store::op_store::OpStoreError::Other("unimplemented".to_string())) })),
             target_arc_factor: 1,
             auth_material: None,
             network_config: None,

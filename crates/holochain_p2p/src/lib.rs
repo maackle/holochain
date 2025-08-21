@@ -25,8 +25,8 @@ pub use peer_meta_store::*;
 mod local_agent;
 pub use local_agent::*;
 
-mod op_store;
-pub use op_store::*;
+pub use kitsune2_sqlite_op_store::op_store::{GetDbOpStore, OpStoreError, OpStoreResult};
+pub use kitsune2_sqlite_op_store::{HolochainOpStore, HolochainOpStoreFactory};
 
 mod metrics;
 

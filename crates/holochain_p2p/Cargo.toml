@@ -42,6 +42,7 @@ kitsune2 = "0.2.15"
 kitsune2_api = "0.2.15"
 kitsune2_core = "0.2.15"
 kitsune2_gossip = "0.2.15"
+kitsune2_sqlite_op_store = { path = "../kitsune2_sqlite_op_store" }
 bytes = "1.10"
 holochain_sqlite = { version = "^0.6.0-dev.17", path = "../holochain_sqlite" }
 lair_keystore_api = "=0.6.2"

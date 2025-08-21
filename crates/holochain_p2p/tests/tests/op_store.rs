@@ -5,7 +5,7 @@ use holochain_p2p::event::{
     CountersigningSessionNegotiationMessage, DynHcP2pHandler, GetActivityOptions, GetLinksOptions,
     GetMetaOptions, HcP2pHandler,
 };
-use holochain_p2p::{HolochainOpStore, HolochainP2pResult};
+use holochain_p2p::HolochainP2pResult;
 use holochain_serialized_bytes::SerializedBytes;
 use holochain_sqlite::db::{DbKindDht, DbWrite};
 use holochain_state::prelude::{
@@ -22,6 +22,7 @@ use holochain_zome_types::fixt::{CreateFixturator, EntryFixturator, SignatureFix
 use holochain_zome_types::prelude::ChainQueryFilter;
 use holochain_zome_types::Action;
 use kitsune2_api::*;
+use kitsune2_sqlite_op_store::op_store::HolochainOpStore;
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -512,10 +513,21 @@ async fn setup_test() -> (DbWrite<DbKindDht>, HolochainOpStore) {
     let db = DbWrite::test_in_mem(DbKindDht(Arc::new(dna_hash.clone()))).unwrap();
 
     let sender: DynHcP2pHandler = Arc::new(StubHost { db: db.clone() });
-    let sender_w = Arc::new(std::sync::OnceLock::new());
-    sender_w.set(holochain_p2p::WrapEvtSender(sender)).unwrap();
+    // This variable is no longer used since we create the event_handler_wrapper instead
+    // let sender_w: Arc<std::sync::OnceLock<holochain_p2p::WrapEvtSender>> =
+    //     Arc::new(std::sync::OnceLock::new());
 
-    let op_store = HolochainOpStore::new(db.clone(), dna_hash, sender_w);
+    // Create a wrapper that implements EventHandlerTrait
+    let event_handler_wrapper = Arc::new(std::sync::OnceLock::new());
+    let wrap_sender = holochain_p2p::WrapEvtSender(sender);
+    event_handler_wrapper
+        .set(Arc::new(wrap_sender)
+            as Arc<
+                dyn kitsune2_sqlite_op_store::op_store::EventHandlerTrait + Send + Sync,
+            >)
+        .unwrap();
+
+    let op_store = HolochainOpStore::new(db.clone(), dna_hash, event_handler_wrapper);
 
     (db, op_store)
 }

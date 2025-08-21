@@ -3073,6 +3073,7 @@ dependencies = [
  "kitsune2_api",
  "kitsune2_core",
  "kitsune2_gossip",
+ "kitsune2_sqlite_op_store",
  "lair_keystore_api",
  "mockall",
  "opentelemetry_api",
@@ -4265,6 +4266,21 @@ dependencies = [
  "thiserror 2.0.14",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "kitsune2_sqlite_op_store"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "futures",
+ "holo_hash",
+ "holochain_serialized_bytes",
+ "holochain_sqlite",
+ "holochain_state",
+ "holochain_types",
+ "kitsune2_api",
+ "thiserror 2.0.14",
 ]
 
 [[package]]
